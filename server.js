@@ -150,16 +150,20 @@ app.post('/api/scores', async (req, res) => {
 // ⚠️ Asegúrate de que esta carpeta sea donde tienes tu index.html
 const FRONTEND_DIR = path.join(__dirname, 'www'); 
 
-// 1. Servir archivos estáticos
+/// 1. Servir archivos estáticos
 // Esto permite que Express sirva HTML, CSS, JS, imágenes, etc., desde la carpeta 'www'
 app.use(express.static(FRONTEND_DIR));
 
-// 2. Ruta comodín (Fallback)
-// Si ninguna de las rutas API anteriores coincide, enviamos el index.html.
-// Esto es necesario para que el frontend se cargue cuando se accede a la raíz del dominio.
-app.get('*', (req, res) => {
-    const indexPath = path.join(FRONTEND_DIR, 'index.html');
-    res.sendFile(indexPath);
+// 2. 🟢 RUTA COMODÍN 
+// Usamos un middleware general para manejar cualquier ruta no definida por las APIs.
+app.use((req, res, next) => {
+    // Si la solicitud no fue respondida por una API (arriba) y no es un archivo estático, 
+    // enviamos el index.html.
+    if (!req.path.startsWith('/api')) {
+        const indexPath = path.join(FRONTEND_DIR, 'index.html');
+        return res.sendFile(indexPath);
+    }
+    next();
 });
 
 
