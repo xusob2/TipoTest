@@ -1,0 +1,356 @@
+:root {
+    --color-primary: #FFCA28                  ;
+    --color-secondary: #6c757d;
+    --color-success: #28a745;
+    --color-danger: #dc3545;
+    --color-warning: #ffc107;
+    --color-bg: #f8f9fa;
+    --color-card-bg: #ffffff;
+    --color-text: #343a40;
+    --color-border: #dee2e6;
+    --header-height: 80px;
+    --footer-height: 60px;
+}
+
+/* Base Mobile-First */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    overflow: hidden; /* Controlamos el scroll en los contenedores específicos */
+}
+
+#app {
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Estructura de Pantalla */
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease-in-out;
+    background-color: var(--color-bg);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Header Fijo */
+header {
+    background-color: var(--color-card-bg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    height: var(--header-height);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+}
+
+/* Footer Fijo */
+footer {
+    background-color: var(--color-card-bg);
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+    padding: 5px;
+    height: var(--footer-height);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Contenido Scrollable */
+.scrollable-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* --- Botones Genéricos (Senior Look) --- */
+button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.menu-button {
+    width: 100%;
+    margin-bottom: 15px;
+    height: 60px;
+}
+
+.footer-btn {
+    flex-grow: 1;
+    height: 50px;
+}
+
+/* Estilos de Botón por Color */
+.primary-btn { background-color: var(--color-primary); color: white; }
+.secondary-btn { background-color: var(--color-secondary); color: white; }
+.success-btn { background-color: var(--color-success); color: white; }
+.admin-btn { background-color: #3b5998; color: white; } /* Color distintivo para Admin */
+
+/* Tarjetas (Cards) */
+.card {
+    background-color: var(--color-card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    margin-bottom: 15px;
+}
+
+/* --- Estilos del Quiz --- */
+
+/* Quiz Header */
+.quiz-header {
+    height: auto; /* Altura flexible */
+    padding: 10px 15px;
+}
+.module-title { font-size: 1.1em; font-weight: 700; }
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+    padding-top: 5px;
+}
+
+/* Barra de Progreso */
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background-color: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: var(--color-primary);
+    transition: width 0.4s ease-in-out;
+}
+
+/* Texto de la Pregunta */
+.question-text {
+    font-size: 1.3em;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+/* Opciones de Respuesta */
+.option-button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background-color: var(--color-bg);
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    font-size: 1em;
+    line-height: 1.4;
+    transition: all 0.2s;
+}
+
+.option-button:not(:disabled):hover {
+    border-color: var(--color-primary);
+    background-color: #e9f5ff;
+}
+
+/* Estados de Respuesta */
+.selected {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.correct-answer {
+    background-color: #d4edda !important;
+    border-color: var(--color-success) !important;
+    color: #155724;
+}
+
+.incorrect-answer {
+    background-color: #f8d7da !important;
+    border-color: var(--color-danger) !important;
+    color: #721c24;
+}
+
+/* Área de Feedback */
+.feedback-area {
+    margin-top: 20px;
+    border-left: 5px solid;
+    padding: 15px;
+}
+
+.feedback-area.correct-feedback { border-color: var(--color-success); }
+.feedback-area.incorrect-feedback { border-color: var(--color-danger); }
+
+/* --- Puntuaciones y Administración --- */
+.table-container {
+    overflow-x: auto;
+}
+
+.scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.scores-table th, .scores-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+}
+
+.scores-table th {
+    background-color: #e9ecef;
+    font-weight: 700;
+    position: sticky; /* Fija el encabezado de la tabla */
+    top: 0;
+}
+
+/* Administración */
+.message-area p {
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.message-area .success { background-color: #d4edda; color: #155724; }
+.message-area .error { background-color: #f8d7da; color: #721c24; }
+.hint { font-size: 0.9em; color: var(--color-secondary); }
+
+#json-input {
+    width: 98%;
+    min-height: 200px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    resize: vertical;
+}
+
+.delete-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.delete-item .delete-btn {
+    padding: 8px 12px;
+    background-color: var(--color-danger);
+    color: white;
+    font-size: 0.9em;
+}
+
+/* Media Query para Tablet/Desktop (Mejora la UX) */
+@media (min-width: 768px) {
+    #app {
+        max-width: 700px; /* Limitar ancho en desktop para mejor lectura */
+        margin: 0 auto;
+        border-left: 1px solid var(--color-border);
+        border-right: 1px solid var(--color-border);
+    }
+    
+    .menu-content {
+        padding-top: 50px;
+    }
+    
+    /* Mostrar navegación rápida en desktop */
+    .nav-buttons-desktop {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 10px 0;
+        gap: 5px;
+        justify-content: flex-start;
+        max-height: 50px; /* Controlar la altura */
+        overflow-y: hidden;
+    }
+    .nav-buttons-desktop button {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        font-size: 12px;
+        border-radius: 50%;
+    }
+
+    /* Estilos para el Modal de Confirmación */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* Fondo oscuro transparente */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* Asegura que esté por encima de todo */
+}
+
+.modal-content {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    padding: 30px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-around;
+    gap: 10px;
+}
+}
+
+/* Estilos necesarios para los cambios de JS */
+
+.nav-dot {
+    /* Estilo base para los botones de navegación rápida */
+    background-color: #ccc; 
+    border: 1px solid #aaa;
+}
+
+/* 1. Pregunta actualmente seleccionada */
+.nav-dot.current-q {
+    background-color: var(--color-primary, #007bff); /* Color primario, se resalta */
+    color: white;
+    font-weight: bold;
+    transform: scale(1.1);
+}
+
+/* 2. Pregunta respondida correctamente */
+.nav-dot.correct-q {
+    background-color: var(--color-success, #28a745); /* Color verde */
+    color: white;
+}
+
+/* 3. Pregunta respondida incorrectamente */
+.nav-dot.incorrect-q {
+    background-color: var(--color-danger, #dc3545); /* Color rojo */
+    color: white;
+}

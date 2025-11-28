@@ -1,0 +1,6 @@
+{
+  "appId": "TestMobile.app",
+  "appName": "TestMobile",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

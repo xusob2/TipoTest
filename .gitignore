@@ -1,0 +1,5 @@
+# Dependencias instaladas
+/node_modules
+
+# Variables de entorno secretas
+.env

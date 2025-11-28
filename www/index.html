@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Mobile - Hacking Ético</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="main-menu" class="screen active">
+            <header>
+                <h1>🛡️ Mobile Quiz System</h1>
+            </header>
+            <main class="menu-content">
+                <button class="menu-button primary-btn" onclick="showScreen('module-selection')">
+                    Hacer un Test (Comenzar)
+                </button>
+                <button class="menu-button secondary-btn" onclick="showScreen('high-scores')">
+                    🏆 Mejores Puntuaciones
+                </button>
+                <button class="menu-button admin-btn" onclick="showScreen('admin-area')">
+                    ⚙️ Administración de Temas
+                </button>
+            </main>
+        </div>
+
+        <div id="module-selection" class="screen hidden">
+            <header>
+                <h2>Seleccionar Módulo</h2>
+            </header>
+            <main id="module-list" class="scrollable-content">
+                <p>Cargando módulos...</p>
+            </main>
+            <footer>
+                <button class="footer-btn" onclick="showScreen('main-menu')">← Volver</button>
+            </footer>
+        </div>
+
+        <div id="quiz-container" class="screen hidden">
+            <header class="quiz-header">
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <div class="info-row">
+                    <span id="quiz-title" class="module-title"></span>
+                    <span id="progress-text">P: 1/0</span>
+                    <span id="score-text">Aciertos: 0</span>
+                </div>
+                <div id="nav-buttons-container" class="nav-buttons-desktop"></div>
+            </header>
+            
+            <main class="quiz-content scrollable-content">
+                <div id="question-card" class="card">
+                    <p id="question-text" class="question-text"></p>
+                    <div id="options-container" class="options"></div>
+                </div>
+                
+                <div id="feedback-area" class="card feedback-area hidden">
+                    <h4 id="feedback-status"></h4>
+                    <p id="feedback-explanation"></p>
+                </div>
+            </main>
+
+            <footer>
+                <button id="prev-btn" class="footer-btn secondary-btn" disabled>← Anterior</button>
+                <button id="next-btn" class="footer-btn primary-btn" onclick="nextQuestion()">Siguiente →</button>
+                <button id="submit-btn" class="footer-btn success-btn hidden" onclick="submitTest()">📊 Finalizar</button>
+                <button id="return-btn" class="footer-btn warning-btn" onclick="returnToModuleSelection()">🔄 Cambiar</button>
+            </footer>
+        </div>
+
+        <div id="summary-screen" class="screen hidden">
+            <header>
+                <h2>Resultados del Test</h2>
+            </header>
+            <main id="summary-content" class="scrollable-content">
+                </main>
+            <footer>
+                <button class="footer-btn secondary-btn" onclick="showScreen('module-selection')">Otro Test</button>
+                <button class="footer-btn primary-btn" onclick="showScreen('main-menu')">Menú Principal</button>
+            </footer>
+        </div>
+
+        <div id="high-scores" class="screen hidden">
+            <header>
+                <h2>🏆 Mejores Puntuaciones</h2>
+            </header>
+            <main id="scores-list" class="scrollable-content">
+                <p>Cargando puntuaciones...</p>
+            </main>
+            <footer>
+                <button class="footer-btn" onclick="showScreen('main-menu')">← Volver</button>
+            </footer>
+        </div>
+
+        <div id="admin-area" class="screen hidden">
+            <header>
+                <h2>⚙️ Administración</h2>
+            </header>
+            <main class="scrollable-content">
+                <div class="admin-actions">
+                    <button class="menu-button primary-btn" onclick="showAdminUpload()">Cargar Nuevo Módulo (JSON)</button>
+                    <button class="menu-button secondary-btn" onclick="showAdminDeleteList()">Gestionar/Borrar Módulos</button>
+                </div>
+
+                <div id="admin-messages" class="message-area"></div>
+
+                <div id="admin-upload-section" class="card hidden">
+                    <h3>Subir Preguntas</h3>
+                    <p class="hint">Pega el JSON de tu array de preguntas. Asegúrate de incluir el <code>"moduleName"</code>.</p>
+                    <textarea id="json-input" rows="10" placeholder="[{ 'moduleName': '...', 'question': '...', 'options': [...], 'correct': 0 }]"></textarea>
+                    <button class="menu-button success-btn" onclick="uploadNewModule()">Subir y Procesar</button>
+                </div>
+
+                <div id="admin-delete-list-section" class="card hidden">
+                    <h3>Eliminar Módulos Existentes</h3>
+                    <div id="delete-module-list"></div>
+                </div>
+            </main>
+            <footer>
+                <button class="footer-btn" onclick="showScreen('main-menu')">← Volver</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h3>¿Estás seguro?</h3>
+        <p>Si abandonas ahora, perderás el progreso actual del test.</p>
+        <div class="modal-buttons">
+            <button id="modal-cancel-btn" class="menu-button primary-btn">Cancelar</button>
+            <button id="modal-confirm-btn" class="menu-button danger-btn">Abandonar</button>
+        </div>
+    </div>
+</div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
