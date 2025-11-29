@@ -1,5 +1,5 @@
 // script.js
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = '/api';
 
 // 1. Elementos UI (Selección de Pantallas y Componentes Clave)
 const screens = {};
