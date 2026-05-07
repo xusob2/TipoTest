@@ -1,174 +1,128 @@
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
-// ⭐️ IMPORTAR PATH para servir archivos estáticos
 const path = require('path'); 
 const { Question, Score, Report } = require('./db');
 const app = express();
-const PORT = process.env.PORT || 3000; // ⭐️ Usar el puerto de Render o el 3000
+const PORT = process.env.PORT || 3000; 
 
-// --- Middlewares ---
-app.use(cors()); // Permite peticiones de tu frontend
-app.use(express.json()); // Permite a Express leer cuerpos JSON en las peticiones POST/PUT
+app.use(cors()); 
+app.use(express.json()); 
 
-// --- RUTAS API DE GESTIÓN DE MÓDULOS (CRUD ADMINISTRATIVO) ---
+// --- RUTAS DE LECTURA (MENÚ Y QUIZ) ---
 
-/**
- * Endpoint para crear un nuevo módulo (subir preguntas desde un JSON).
- * El body debe ser un array de objetos de preguntas.
- */
-app.post('/api/admin/create-module', async (req, res) => {
+// Obtener menú dinámico (agrupado por groupName y moduleName)
+app.get('/api/menu', async (req, res) => {
     try {
-        const questionsArray = req.body; // Se espera un array de preguntas
-
-        if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
-            return res.status(400).json({ message: 'El cuerpo de la solicitud debe ser un array de preguntas no vacío.' });
-        }
-        
-        // Asumiendo que el moduleName es consistente en todas las preguntas
-        const moduleName = questionsArray[0].moduleName; 
-
-        // 1. Eliminar preguntas existentes para este módulo (opcional: limpiar antes de recargar)
-        await Question.deleteMany({ moduleName: moduleName });
-        
-        // 2. Insertar las nuevas preguntas
-        const result = await Question.insertMany(questionsArray);
-        
-        res.status(201).json({ 
-            message: `Módulo '${moduleName}' guardado exitosamente.`, 
-            count: result.length 
-        });
-
+        const menu = await Question.aggregate([
+            { $group: { _id: { group: "$groupName", module: "$moduleName" }, count: { $sum: 1 } } },
+            { $sort: { "_id.module": 1 } },
+            { $group: { _id: "$_id.group", modules: { $push: { name: "$_id.module", count: "$count" } } } },
+            { $sort: { "_id": 1 } } // Ordenar grupos alfabéticamente
+        ]);
+        res.json(menu);
     } catch (error) {
-        console.error('Error al subir preguntas:', error);
-        res.status(500).json({ message: 'Error interno del servidor al procesar las preguntas.' });
+        res.status(500).json({ message: 'Error al cargar el menú.' });
     }
 });
 
-/**
- * Endpoint para eliminar un módulo completo.
- */
-app.delete('/api/admin/module/:moduleName', async (req, res) => {
-    try {
-        const { moduleName } = req.params;
-
-        // 1. Eliminar todas las preguntas del módulo
-        await Question.deleteMany({ moduleName });
-
-        // 2. Eliminar todas las puntuaciones para ese módulo (opcional)
-        await Score.deleteMany({ moduleName });
-
-        // 3. Eliminar todos los reportes (opcional)
-        await Report.deleteMany({ moduleName });
-
-        res.status(200).json({ 
-            message: `Módulo '${moduleName}' y sus datos asociados eliminados correctamente.` 
-        });
-
-    } catch (error) {
-        console.error('Error al eliminar módulo:', error);
-        res.status(500).json({ message: 'Error interno del servidor al eliminar el módulo.' });
-    }
-});
-
-// --- RUTAS API DE QUIZ Y PUNTUACIÓN ---
-
-/**
- * Endpoint para obtener la lista de módulos (temas) disponibles.
- */
-app.get('/api/modules', async (req, res) => {
-    try {
-        // Encontrar todos los nombres de módulos únicos
-        const modules = await Question.distinct('moduleName');
-        res.json({ modules });
-    } catch (error) {
-        res.status(500).json({ message: 'Error al obtener los módulos.' });
-    }
-});
-
-/**
- * Endpoint para cargar un quiz: obtener preguntas mezcladas para un tema.
- */
+// Obtener preguntas para jugar (mezcladas)
 app.get('/api/quiz/:moduleName', async (req, res) => {
     try {
         const { moduleName } = req.params;
+        let questions = await Question.find({ moduleName }).select('-__v'); 
+        if (questions.length === 0) return res.status(404).json({ message: 'Módulo sin preguntas.' });
         
-        // 1. Obtener todas las preguntas del módulo
-        let questions = await Question.find({ moduleName }).select('-__v'); // Excluir campo de mongoose
-        
-        if (questions.length === 0) {
-            return res.status(404).json({ message: 'Módulo no encontrado o sin preguntas.' });
-        }
-        
-        // 2. Mezclar el orden de las preguntas (shuffle)
         questions = questions.sort(() => Math.random() - 0.5);
-        
-        // 3. Devolver las preguntas
         res.json({ moduleName, questions });
-        
     } catch (error) {
-        console.error('Error al cargar quiz:', error);
-        res.status(500).json({ message: 'Error interno del servidor al cargar el quiz.' });
+        res.status(500).json({ message: 'Error al cargar el quiz.' });
     }
 });
 
-/**
- * Endpoint para guardar el resultado de un intento de quiz.
- */
+// Guardar Puntuación
 app.post('/api/scores', async (req, res) => {
     try {
         const { moduleName, userName, correctCount, incorrectCount } = req.body;
-        
         const totalQuestions = correctCount + incorrectCount;
         const percentage = (correctCount / totalQuestions) * 100;
 
         const newScore = new Score({
-            moduleName,
-            userName,
-            correctCount,
-            incorrectCount,
-            totalQuestions,
-            percentage: parseFloat(percentage.toFixed(2)) // Redondear a 2 decimales
+            moduleName, userName, correctCount, incorrectCount, totalQuestions,
+            percentage: parseFloat(percentage.toFixed(2))
         });
-
         await newScore.save();
-
-        res.status(201).json({ message: 'Puntuación guardada exitosamente.', score: newScore });
-
+        res.status(201).json({ message: 'Puntuación guardada.', score: newScore });
     } catch (error) {
-        console.error('Error al guardar puntuación:', error);
-        res.status(500).json({ message: 'Error interno del servidor al guardar la puntuación.' });
+        res.status(500).json({ message: 'Error al guardar la puntuación.' });
     }
 });
 
+// --- RUTAS DE ADMINISTRACIÓN (CRUD DE PREGUNTAS) ---
 
-// ------------------------------------------------------------------
-// ⭐️ CÓDIGO AÑADIDO PARA EL DESPLIEGUE FULL-STACK EN RENDER ⭐️
-// ------------------------------------------------------------------
+// Obtener todas las preguntas de un módulo específico (para editar)
+app.get('/api/admin/questions/:moduleName', async (req, res) => {
+    try {
+        const questions = await Question.find({ moduleName: req.params.moduleName });
+        res.json(questions);
+    } catch (error) {
+        res.status(500).json({ message: 'Error al obtener preguntas.' });
+    }
+});
 
-// ⚠️ Asegúrate de que esta carpeta sea donde tienes tu index.html
+// Crear una pregunta individual
+app.post('/api/admin/question', async (req, res) => {
+    try {
+        const newQ = new Question(req.body);
+        await newQ.save();
+        res.status(201).json({ message: 'Pregunta añadida.', question: newQ });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al guardar pregunta.' });
+    }
+});
+
+// Actualizar una pregunta existente
+app.put('/api/admin/question/:id', async (req, res) => {
+    try {
+        const updatedQ = await Question.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json({ message: 'Pregunta actualizada.', question: updatedQ });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al actualizar.' });
+    }
+});
+
+// Borrar una pregunta individual
+app.delete('/api/admin/question/:id', async (req, res) => {
+    try {
+        await Question.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Pregunta eliminada.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al eliminar.' });
+    }
+});
+
+// Subida masiva mediante JSON
+app.post('/api/admin/create-module', async (req, res) => {
+    try {
+        const questionsArray = req.body; 
+        if (!Array.isArray(questionsArray) || questionsArray.length === 0) return res.status(400).json({ message: 'Array vacío.' });
+        const moduleName = questionsArray[0].moduleName; 
+        await Question.deleteMany({ moduleName: moduleName });
+        const result = await Question.insertMany(questionsArray);
+        res.status(201).json({ message: `Módulo '${moduleName}' guardado.`, count: result.length });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al procesar JSON.' });
+    }
+});
+
+// --- FRONTEND ESTÁTICO ---
 const FRONTEND_DIR = path.join(__dirname, 'www'); 
-
-/// 1. Servir archivos estáticos
-// Esto permite que Express sirva HTML, CSS, JS, imágenes, etc., desde la carpeta 'www'
 app.use(express.static(FRONTEND_DIR));
-
-// 2. 🟢 RUTA COMODÍN 
-// Usamos un middleware general para manejar cualquier ruta no definida por las APIs.
 app.use((req, res, next) => {
-    // Si la solicitud no fue respondida por una API (arriba) y no es un archivo estático, 
-    // enviamos el index.html.
     if (!req.path.startsWith('/api')) {
-        const indexPath = path.join(FRONTEND_DIR, 'index.html');
-        return res.sendFile(indexPath);
+        return res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
     }
     next();
 });
 
-
-// --- Iniciar Servidor ---
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor Express.js iniciado en http://localhost:${PORT}`);
-    console.log('API lista para recibir peticiones...');
-});
+app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));

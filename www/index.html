@@ -3,138 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Mobile - Hacking Ético</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <title>Hacking Ético - Plataforma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div id="app">
         <div id="main-menu" class="screen active">
-            <header>
-                <h1>🛡️ Mobile Quiz System</h1>
-            </header>
-            <main class="menu-content">
-                <button class="menu-button primary-btn" onclick="showScreen('module-selection')">
-                    Hacer un Test (Comenzar)
+            <button class="gear-btn" onclick="showAdmin()">
+                <i data-lucide="settings"></i>
+            </button>
+            
+            <div class="menu-card">
+                <h1 class="title-gradient">Hacking Ético</h1>
+                <p class="subtitle">Selecciona un módulo para practicar</p>
+                
+                <div id="dynamic-menu-container"></div>
+                
+                <button id="btn-fallos" class="menu-btn red-btn col-flex center" style="margin-top:20px" onclick="startFallos()">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="alert-triangle"></i> 
+                        <span id="fallos-count">Tus Fallos Acumulados (0)</span>
+                    </div>
                 </button>
-                <button class="menu-button secondary-btn" onclick="showScreen('high-scores')">
-                    🏆 Mejores Puntuaciones
-                </button>
-                <button class="menu-button admin-btn" onclick="showScreen('admin-area')">
-                    ⚙️ Administración de Temas
-                </button>
-            </main>
+            </div>
         </div>
 
-        <div id="module-selection" class="screen hidden">
-            <header>
-                <h2>Seleccionar Módulo</h2>
-            </header>
-            <main id="module-list" class="scrollable-content">
-                <p>Cargando módulos...</p>
-            </main>
-            <footer>
-                <button class="footer-btn" onclick="showScreen('main-menu')">← Volver</button>
-            </footer>
+        <div id="admin-screen" class="screen hidden">
+            <div class="top-nav">
+                <button class="exit-btn" onclick="loadMainMenu()">
+                    <i data-lucide="arrow-left" style="width: 14px;"></i> Volver
+                </button>
+            </div>
+            <div class="admin-card">
+                <h2 class="title-gradient" style="font-size: 1.8rem; margin-bottom: 20px;">Gestión de Preguntas</h2>
+                
+                <div class="admin-layout">
+                    <div class="admin-sidebar">
+                        <h3 style="margin-bottom:10px; color:var(--text-muted)">Módulos</h3>
+                        <div id="admin-module-list" class="module-list"></div>
+                        <button class="menu-btn dark-btn" style="margin-top:10px;" onclick="document.getElementById('upload-json-modal').classList.remove('hidden')">
+                            + Cargar JSON masivo
+                        </button>
+                    </div>
+                    
+                    <div class="admin-content">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 id="admin-current-module">Selecciona un módulo</h3>
+                            <button class="menu-btn blue-btn" style="width: auto; padding: 10px 15px;" onclick="openQuestionModal()">+ Nueva Pregunta</button>
+                        </div>
+                        <div id="admin-questions-list" class="questions-list">
+                            <p style="color:var(--text-muted)">Las preguntas aparecerán aquí.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="quiz-container" class="screen hidden">
-            <header class="quiz-header">
-                <div class="progress-bar-container">
-                    <div id="progress-bar" class="progress-bar"></div>
-                </div>
-                <div class="info-row">
-                    <span id="quiz-title" class="module-title"></span>
-                    <span id="progress-text">P: 1/0</span>
-                    <span id="score-text">Aciertos: 0</span>
-                </div>
-                <div id="nav-buttons-container" class="nav-buttons-desktop"></div>
-            </header>
-            
-            <main class="quiz-content scrollable-content">
-                <div id="question-card" class="card">
-                    <p id="question-text" class="question-text"></p>
-                    <div id="options-container" class="options"></div>
-                </div>
-                
-                <div id="feedback-area" class="card feedback-area hidden">
-                    <h4 id="feedback-status"></h4>
-                    <p id="feedback-explanation"></p>
-                </div>
-            </main>
+            <div class="top-nav">
+                <button class="exit-btn" onclick="loadMainMenu()">
+                    <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> Salir al menú
+                </button>
+            </div>
 
-            <footer>
-                <button id="prev-btn" class="footer-btn secondary-btn" disabled>← Anterior</button>
-                <button id="next-btn" class="footer-btn primary-btn" onclick="nextQuestion()">Siguiente →</button>
-                <button id="submit-btn" class="footer-btn success-btn hidden" onclick="submitTest()">📊 Finalizar</button>
-                <button id="return-btn" class="footer-btn warning-btn" onclick="returnToModuleSelection()">🔄 Cambiar</button>
-            </footer>
+            <div class="quiz-card">
+                <header class="quiz-header">
+                    <div class="header-info">
+                        <span id="quiz-title" class="module-title"></span>
+                        <span id="progress-text" class="progress-text"></span>
+                    </div>
+                    <div id="nav-buttons-container" class="nav-buttons-scroll"></div>
+                    <div id="review-indicator" class="review-indicator hidden">
+                        <div class="hit-bars">
+                            <div class="hit-bar" id="hit-1"></div>
+                            <div class="hit-bar" id="hit-2"></div>
+                            <div class="hit-bar" id="hit-3"></div>
+                        </div>
+                        <span id="custom-phrase" class="custom-phrase"></span>
+                    </div>
+                </header>
+                
+                <main class="quiz-content">
+                    <div class="question-box">
+                        <h2 id="question-text"></h2>
+                        <div id="options-container" class="options-grid hidden"></div>
+                        
+                        <form id="text-input-container" class="text-input-form hidden">
+                            <input type="text" id="text-answer" placeholder="Escribe tu respuesta..." autocomplete="off">
+                            <div id="feedback-area" class="feedback-area hidden">
+                                <i data-lucide="x-circle"></i>
+                                <span id="feedback-msg"></span>
+                            </div>
+                            <button type="submit" id="btn-validate" class="btn-validate">Validar [Enter]</button>
+                        </form>
+                    </div>
+
+                    <div class="quiz-footer">
+                        <div id="ya-me-la-se-container" class="hidden">
+                            <button class="btn-ya-se" onclick="removeFromFallos()"><i data-lucide="check-circle-2" style="color: #10b981; width: 16px;"></i> Ya me la sé</button>
+                        </div>
+                        <button id="btn-next" class="btn-next" disabled onclick="handleNext()">Siguiente Pregunta</button>
+                    </div>
+                </main>
+            </div>
         </div>
 
         <div id="summary-screen" class="screen hidden">
-            <header>
-                <h2>Resultados del Test</h2>
-            </header>
-            <main id="summary-content" class="scrollable-content">
-                </main>
-            <footer>
-                <button class="footer-btn secondary-btn" onclick="showScreen('module-selection')">Otro Test</button>
-                <button class="footer-btn primary-btn" onclick="showScreen('main-menu')">Menú Principal</button>
-            </footer>
+            <div class="summary-card">
+                <i data-lucide="trophy" style="width: 64px; height: 64px; color: #eab308; margin-bottom: 24px;"></i>
+                <h2 class="title-gradient">BLOQUE SUPERADO</h2>
+                <button class="menu-btn full-yellow-btn" onclick="loadMainMenu()">Volver al Menú</button>
+            </div>
         </div>
 
-        <div id="high-scores" class="screen hidden">
-            <header>
-                <h2>🏆 Mejores Puntuaciones</h2>
-            </header>
-            <main id="scores-list" class="scrollable-content">
-                <p>Cargando puntuaciones...</p>
-            </main>
-            <footer>
-                <button class="footer-btn" onclick="showScreen('main-menu')">← Volver</button>
-            </footer>
+        <div id="question-modal" class="modal-overlay hidden">
+            <div class="modal-box">
+                <h3 id="modal-title" style="margin-bottom: 20px;">Editar Pregunta</h3>
+                <form id="question-form">
+                    <input type="hidden" id="q-id">
+                    <input type="text" id="q-group" class="admin-input" placeholder="Nombre del Grupo (Ej: UT4 - Tema 1)" required>
+                    <input type="text" id="q-module" class="admin-input" placeholder="Nombre del Módulo (Ej: Meterpreter)" required>
+                    <textarea id="q-text" class="admin-input" rows="3" placeholder="Texto de la pregunta" required></textarea>
+                    
+                    <select id="q-type" class="admin-input" onchange="toggleQuestionType()">
+                        <option value="choice">Test (Múltiple Opción)</option>
+                        <option value="text">Escribir comando/texto</option>
+                    </select>
+
+                    <div id="type-choice-fields">
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px">Opciones (Marca la correcta):</p>
+                        <div class="opt-row"><input type="radio" name="q-correct" value="0" required><input type="text" id="q-opt-0" class="admin-input" placeholder="Opción 1"></div>
+                        <div class="opt-row"><input type="radio" name="q-correct" value="1"><input type="text" id="q-opt-1" class="admin-input" placeholder="Opción 2"></div>
+                        <div class="opt-row"><input type="radio" name="q-correct" value="2"><input type="text" id="q-opt-2" class="admin-input" placeholder="Opción 3"></div>
+                        <div class="opt-row"><input type="radio" name="q-correct" value="3"><input type="text" id="q-opt-3" class="admin-input" placeholder="Opción 4"></div>
+                    </div>
+
+                    <div id="type-text-fields" class="hidden">
+                        <input type="text" id="q-correctText" class="admin-input" placeholder="Respuesta correcta exacta">
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="button" class="menu-btn dark-btn" onclick="document.getElementById('question-modal').classList.add('hidden')">Cancelar</button>
+                        <button type="submit" class="menu-btn yellow-btn">Guardar</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <div id="admin-area" class="screen hidden">
-            <header>
-                <h2>⚙️ Administración</h2>
-            </header>
-            <main class="scrollable-content">
-                <div class="admin-actions">
-                    <button class="menu-button primary-btn" onclick="showAdminUpload()">Cargar Nuevo Módulo (JSON)</button>
-                    <button class="menu-button secondary-btn" onclick="showAdminDeleteList()">Gestionar/Borrar Módulos</button>
+        <div id="upload-json-modal" class="modal-overlay hidden">
+            <div class="modal-box">
+                <h3>Subir Módulo (JSON)</h3>
+                <textarea id="json-input" class="admin-input" rows="8" placeholder="[{ 'groupName': '...', 'moduleName': '...', 'question': '...', 'type': 'choice', 'options': [...], 'correct': 0 }]"></textarea>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="menu-btn dark-btn" onclick="document.getElementById('upload-json-modal').classList.add('hidden')">Cancelar</button>
+                    <button class="menu-btn blue-btn" onclick="uploadJSON()">Subir JSON</button>
                 </div>
-
-                <div id="admin-messages" class="message-area"></div>
-
-                <div id="admin-upload-section" class="card hidden">
-                    <h3>Subir Preguntas</h3>
-                    <p class="hint">Pega el JSON de tu array de preguntas. Asegúrate de incluir el <code>"moduleName"</code>.</p>
-                    <textarea id="json-input" rows="10" placeholder="[{ 'moduleName': '...', 'question': '...', 'options': [...], 'correct': 0, 'explanation': '...'}]"></textarea>
-                    <button class="menu-button success-btn" onclick="uploadNewModule()">Subir y Procesar</button>
-                </div>
-
-                <div id="admin-delete-list-section" class="card hidden">
-                    <h3>Eliminar Módulos Existentes</h3>
-                    <div id="delete-module-list"></div>
-                </div>
-            </main>
-            <footer>
-                <button class="footer-btn" onclick="showScreen('main-menu')">← Volver</button>
-            </footer>
+            </div>
         </div>
     </div>
-
-    <div id="confirmation-modal" class="modal-overlay hidden">
-    <div class="modal-content">
-        <h3>¿Estás seguro?</h3>
-        <p>Si abandonas ahora, perderás el progreso actual del test.</p>
-        <div class="modal-buttons">
-            <button id="modal-cancel-btn" class="menu-button primary-btn">Cancelar</button>
-            <button id="modal-confirm-btn" class="menu-button danger-btn">Abandonar</button>
-        </div>
-    </div>
-</div>
     
     <script src="script.js"></script>
 </body>
