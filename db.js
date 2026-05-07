@@ -3,13 +3,13 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/quizdb
 
 // 1. Esquema de Pregunta Actualizado
 const QuestionSchema = new mongoose.Schema({
-    groupName: { type: String, default: 'General' }, // Grupo (Ej: "UT4 - Persistencia")
-    moduleName: { type: String, required: true },    // Tema (Ej: "Meterpreter")
+    groupName: { type: String, default: 'General' },
+    moduleName: { type: String, required: true },
     question: { type: String, required: true },
-    type: { type: String, enum: ['choice', 'text'], default: 'choice' }, // Tipo de pregunta
-    options: [{ type: String }],                     // Opciones (vacío si es tipo texto)
-    correct: { type: Number },                       // Índice de la correcta (si es choice)
-    correctAnswerText: { type: String },             // Texto de la correcta (si es text)
+    type: { type: String, enum: ['choice', 'text'], default: 'choice' },
+    options: [{ type: String }],
+    correct: { type: Number },
+    correctAnswerText: { type: String },
     explanation: { type: String, default: 'No hay explicación disponible.' }
 });
 
@@ -33,25 +33,22 @@ const ReportSchema = new mongoose.Schema({
     reportCount: { type: Number, default: 1 },
     date: { type: Date, default: Date.now }
 });
-// Nuevo esquema para récords perfectos
+
+// 4. Nuevo esquema para récords perfectos
 const PerfectRunSchema = new mongoose.Schema({
     moduleName: { type: String, required: true, unique: true },
     count: { type: Number, default: 0 }
 });
 
-module.exports = {
-    Question: mongoose.model('Question', QuestionSchema),
-    Score: mongoose.model('Score', ScoreSchema),
-    Report: mongoose.model('Report', ReportSchema),
-    PerfectRun: mongoose.model('PerfectRun', PerfectRunSchema) // Añade esta línea
-};
-
+// Conexión a Mongoose
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('✅ Conexión a MongoDB exitosa.'))
     .catch(err => console.error('❌ Error de conexión a MongoDB:', err));
 
+// ÚNICO EXPORT AL FINAL
 module.exports = {
     Question: mongoose.model('Question', QuestionSchema),
     Score: mongoose.model('Score', ScoreSchema),
-    Report: mongoose.model('Report', ReportSchema)
+    Report: mongoose.model('Report', ReportSchema),
+    PerfectRun: mongoose.model('PerfectRun', PerfectRunSchema)
 };
