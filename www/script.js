@@ -413,22 +413,67 @@ async function showAdmin() {
         const groups = await res.json();
         list.innerHTML = '';
         groups.forEach(g => {
-            const h4 = document.createElement('h4');
-            h4.textContent = g._id;
-            h4.className = 'group-title';
-            h4.style.fontSize = '0.7rem';
+            const h4 = document.createElement('h4'); 
+            h4.textContent = g._id; 
+            h4.className = "group-title"; 
             list.appendChild(h4);
+
             g.modules.forEach(m => {
-                const btn = document.createElement('button');
-                btn.className = 'module-item';
+                const container = document.createElement('div');
+                container.style.display = "flex";
+                container.style.alignItems = "center";
+                container.style.gap = "5px";
+                container.style.marginBottom = "5px";
+
+                const btn = document.createElement('button'); 
+                btn.className = "module-item"; 
+                btn.style.flexGrow = "1";
                 btn.textContent = m.name;
-                btn.onclick = () => loadAdminQuestions(m.name, btn);
-                list.appendChild(btn);
+                btn.onclick = () => loadAdminQuestions(m.name, btn); 
+                
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = "🗑️";
+                delBtn.style.background = "transparent";
+                delBtn.style.border = "none";
+                delBtn.style.cursor = "pointer";
+                delBtn.style.padding = "5px";
+                delBtn.title = "Borrar módulo completo";
+                delBtn.onclick = (e) => {
+                    e.stopPropagation(); // Evita que se seleccione el módulo al intentar borrarlo
+                    deleteEntireModule(m.name);
+                };
+
+                container.appendChild(btn);
+                container.appendChild(delBtn);
+                list.appendChild(container);
             });
         });
     } catch(e) { list.innerHTML = 'Error.'; }
 }
 
+// Nueva función para borrar el módulo entero
+async function deleteEntireModule(moduleName) {
+    const confirmacion = confirm(`⚠️ ¡ATENCIÓN! ⚠️\n¿Estás seguro de que quieres borrar TODAS las preguntas de "${moduleName}"?\nEsta acción no se puede deshacer.`);
+    
+    if (!confirmacion) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/module/${encodeURIComponent(moduleName)}`, {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            alert("Módulo eliminado correctamente.");
+            showAdmin(); // Refrescar la lista de módulos
+            document.getElementById('admin-questions-list').innerHTML = '<p style="color:gray;">Módulo eliminado.</p>';
+            document.getElementById('admin-current-module').textContent = 'Selecciona un módulo';
+        } else {
+            alert("Error al intentar eliminar el módulo.");
+        }
+    } catch (e) {
+        alert("Fallo de conexión con el servidor.");
+    }
+}
 async function loadAdminQuestions(moduleName, btnElement) {
     document.querySelectorAll('.module-item').forEach(b => b.classList.remove('active'));
     if(btnElement) btnElement.classList.add('active');

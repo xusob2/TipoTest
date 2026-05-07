@@ -263,8 +263,29 @@ body {
 .admin-sidebar { width: 100%; max-width: 250px; background: #1a1a1a; padding: 20px; border-radius: 16px; border: 1px solid var(--border-color); height: 500px; overflow-y: auto; }
 .admin-content { flex-grow: 1; background: #1a1a1a; padding: 20px; border-radius: 16px; border: 1px solid var(--border-color); height: 500px; overflow-y: auto; }
 
-.module-item { display: block; width: 100%; text-align: left; padding: 12px; background: transparent; border: 1px solid transparent; color: var(--text-main); cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 0.85rem; }
-.module-item:hover, .module-item.active { background: #2a2a2a; color: var(--blue-main); border-color: var(--border-color); }
+.module-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px; /* Un poco menos de padding */
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-main);
+    cursor: pointer;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 0.8rem; /* Fuente un pelín más pequeña para que no rompa líneas */
+    transition: all 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.module-item:hover, .module-item.active {
+    background: #2a2a2a;
+    color: var(--blue-main);
+    border-color: var(--border-color);
+}
 
 .q-list-item { background: #252525; padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 15px; }
 .q-actions { display: flex; gap: 5px; }

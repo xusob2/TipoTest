@@ -100,7 +100,16 @@ app.delete('/api/admin/question/:id', async (req, res) => {
         res.status(500).json({ message: 'Error al eliminar.' });
     }
 });
-
+// Borrar un MÓDULO entero (todas sus preguntas)
+app.delete('/api/admin/module/:moduleName', async (req, res) => {
+    try {
+        const { moduleName } = req.params;
+        const result = await Question.deleteMany({ moduleName });
+        res.json({ message: `Se han eliminado ${result.deletedCount} preguntas del módulo ${moduleName}.` });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al eliminar el módulo completo.' });
+    }
+});
 // Subida masiva mediante JSON
 app.post('/api/admin/create-module', async (req, res) => {
     try {
