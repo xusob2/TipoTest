@@ -16,17 +16,15 @@
             </button>
             
             <div class="menu-card">
-                <h1 class="title-gradient">Hacking Ético</h1>
-                <p class="subtitle">Selecciona un módulo para practicar</p>
+                <h1 id="menu-main-title" class="title-gradient">HACKING ÉTICO</h1>
+                <p id="menu-main-subtitle" class="subtitle">PLATAFORMA DE ENTRENAMIENTO</p>
+                
+                <button id="btn-back-groups" class="exit-btn hidden" onclick="renderGroupMenu()" style="margin-bottom: 20px;">
+                    <i data-lucide="arrow-left" style="width: 14px;"></i> Volver a Temas
+                </button>
                 
                 <div id="dynamic-menu-container"></div>
                 
-                <button id="btn-fallos" class="menu-btn red-btn col-flex center" style="margin-top:20px" onclick="startFallos()">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="alert-triangle"></i> 
-                        <span id="fallos-count">Tus Fallos Acumulados (0)</span>
-                    </div>
-                </button>
             </div>
         </div>
 
@@ -123,8 +121,8 @@
                 <h3 id="modal-title" style="margin-bottom: 20px;">Editar Pregunta</h3>
                 <form id="question-form">
                     <input type="hidden" id="q-id">
-                    <input type="text" id="q-group" class="admin-input" placeholder="Nombre del Grupo (Ej: UT4 - Tema 1)" required>
-                    <input type="text" id="q-module" class="admin-input" placeholder="Nombre del Módulo (Ej: Meterpreter)" required>
+                    <input type="text" id="q-group" class="admin-input" placeholder="Nombre del Grupo (Ej: TEMA 4)" required>
+                    <input type="text" id="q-module" class="admin-input" placeholder="Nombre del Módulo (Ej: Test General)" required>
                     <textarea id="q-text" class="admin-input" rows="3" placeholder="Texto de la pregunta" required></textarea>
                     
                     <select id="q-type" class="admin-input" onchange="toggleQuestionType()">
@@ -155,7 +153,7 @@
         <div id="upload-json-modal" class="modal-overlay hidden">
             <div class="modal-box">
                 <h3>Subir Módulo (JSON)</h3>
-                <textarea id="json-input" class="admin-input" rows="8" placeholder="[{ 'groupName': '...', 'moduleName': '...', 'question': '...', 'type': 'choice', 'options': [...], 'correct': 0 }]"></textarea>
+                <textarea id="json-input" class="admin-input" rows="8" placeholder="[{ 'groupName': 'TEMA 4', 'moduleName': 'Test Parte 1', 'question': '...', 'type': 'choice', 'options': [...], 'correct': 0 }]"></textarea>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="menu-btn dark-btn" onclick="document.getElementById('upload-json-modal').classList.add('hidden')">Cancelar</button>
                     <button class="menu-btn blue-btn" onclick="uploadJSON()">Subir JSON</button>

@@ -49,7 +49,7 @@ body {
 
 /* Tipografía y Textos */
 .title-gradient {
-    font-size: 2.5rem;
+    font-size: 3rem; /* ANTES 2.5rem */
     font-weight: 900;
     text-transform: uppercase;
     background: linear-gradient(to right, #facc15, #ca8a04);
@@ -61,7 +61,7 @@ body {
 
 .subtitle {
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 1rem; /* ANTES 0.85rem */
     text-transform: uppercase;
     letter-spacing: 0.2em;
     text-align: center;
@@ -69,18 +69,23 @@ body {
 }
 
 /* Tarjetas */
+/* Tarjetas */
 .menu-card, .quiz-card, .summary-card {
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 24px;
-    padding: 32px;
+    padding: 40px; /* Un poco más de aire interior */
     width: 100%;
-    max-width: 600px;
+    max-width: 900px; /* ANTES ERA 600px - Ahora es mucho más grande y cómodo */
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     position: relative;
 }
 
-.quiz-card { padding: 0; max-width: 800px; overflow: hidden; }
+.quiz-card { 
+    padding: 0; 
+    max-width: 1000px; /* ANTES ERA 800px - Para que los textos largos quepan mejor */
+    overflow: hidden; 
+}
 
 /* Grids */
 .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
@@ -88,19 +93,20 @@ body {
 @media (min-width: 600px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
 
 /* Botones del Menú */
+/* Botones del Menú */
 .menu-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
     font-weight: 700;
-    padding: 20px;
+    padding: 24px; /* ANTES 20px - Botones más altos para hacer clic fácilmente */
     border-radius: 16px;
     border: 1px solid var(--border-color);
     cursor: pointer;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-size: 0.75rem;
+    letter-spacing: 0.05em; /* Un poco menos separado para que quepa bien la letra más grande */
+    font-size: 1.05rem; /* ANTES 0.75rem - ¡Este es el cambio clave para no forzar la vista! */
     transition: all 0.2s;
     outline: none;
 }

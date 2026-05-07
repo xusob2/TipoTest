@@ -82,9 +82,11 @@ app.post('/api/admin/question', async (req, res) => {
 });
 
 // Actualizar una pregunta existente
+// Actualizar una pregunta existente
 app.put('/api/admin/question/:id', async (req, res) => {
     try {
-        const updatedQ = await Question.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        // Hemos cambiado { new: true } por { returnDocument: 'after' }
+        const updatedQ = await Question.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
         res.json({ message: 'Pregunta actualizada.', question: updatedQ });
     } catch (error) {
         res.status(500).json({ message: 'Error al actualizar.' });
@@ -110,17 +112,38 @@ app.delete('/api/admin/module/:moduleName', async (req, res) => {
         res.status(500).json({ message: 'Error al eliminar el módulo completo.' });
     }
 });
+// Borrar un GRUPO entero (todas sus preguntas y módulos asociados)
+app.delete('/api/admin/group/:groupName', async (req, res) => {
+    try {
+        const { groupName } = req.params;
+        const result = await Question.deleteMany({ groupName });
+        res.json({ message: `Se han eliminado ${result.deletedCount} preguntas del grupo ${groupName}.` });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al eliminar el grupo completo.' });
+    }
+});
 // Subida masiva mediante JSON
 app.post('/api/admin/create-module', async (req, res) => {
     try {
         const questionsArray = req.body; 
-        if (!Array.isArray(questionsArray) || questionsArray.length === 0) return res.status(400).json({ message: 'Array vacío.' });
-        const moduleName = questionsArray[0].moduleName; 
-        await Question.deleteMany({ moduleName: moduleName });
+        if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
+            return res.status(400).json({ message: 'Array vacío.' });
+        }
+        
+        // Sacamos una lista de TODOS los nombres de módulos que han llegado 
+        // Ej: ["Meterpreter (Parte 1)", "Meterpreter (Parte 2)"]
+        const uniqueModules = [...new Set(questionsArray.map(q => q.moduleName))];
+        
+        // Borramos todos esos módulos en la base de datos para evitar duplicados si estás resubiendo
+        await Question.deleteMany({ moduleName: { $in: uniqueModules } });
+        
+        // Insertamos el nuevo array ya procesado
         const result = await Question.insertMany(questionsArray);
-        res.status(201).json({ message: `Módulo '${moduleName}' guardado.`, count: result.length });
+        
+        res.status(201).json({ message: `Módulos guardados con éxito.`, count: result.length });
     } catch (error) {
-        res.status(500).json({ message: 'Error al procesar JSON.' });
+        console.error("Error procesando JSON:", error);
+        res.status(500).json({ message: 'Error al procesar JSON en el servidor.' });
     }
 });
 

@@ -5,11 +5,15 @@ let globalFallos = JSON.parse(localStorage.getItem('hacking_fallos_ut4')) || [];
 let selectedCat = null;
 let queue = [];
 let failedPool = [];
+let fetchedGroups = []; // Agregado para cachear los grupos en el menú
+let currentAdminQuestions = []; // NUEVO: Para gestionar la edición de forma segura
 let idx = 0;
 let correctsInSession = 0;
 let mode = 'quiz'; // 'quiz' o 'review'
 let isAnswered = false;
 let timeoutId = null;
+let perfectRuns = JSON.parse(localStorage.getItem('hacking_perfect_runs')) || {};
+let totalQuestions = 0; // Para calcular bien el % final
 
 // --- Elementos DOM Pantallas ---
 const screens = {
@@ -73,84 +77,149 @@ function shuffleArray(array) {
 }
 
 // ==========================================
-// 1. CARGA DEL MENÚ PRINCIPAL (CON FALLOS POR GRUPO)
+// 1. CARGA DEL MENÚ PRINCIPAL (CON NAVEGACIÓN POR GRUPOS)
 // ==========================================
 async function loadMainMenu() {
     showScreen('main-menu');
-    dynamicMenuContainer.innerHTML = '<p style="color:gray; text-align:center;">Cargando módulos...</p>';
+    dynamicMenuContainer.innerHTML = '<p style="color:gray; text-align:center;">Cargando temas...</p>';
     
     try {
         const res = await fetch(`${API_BASE_URL}/menu`);
-        const groups = await res.json();
+        fetchedGroups = await res.json(); 
         
-        dynamicMenuContainer.innerHTML = '';
-        
-        if(groups.length === 0) {
-            dynamicMenuContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted)">No hay temas cargados. Usa el engranaje para administrarlos.</p>';
-            return;
-        }
-
-        const styles = [
-            { btn: 'yellow-btn', icon: 'terminal' },
-            { btn: 'blue-btn', icon: 'unlock' },
-            { btn: 'dark-btn', icon: 'network' }
-        ];
-
-        groups.forEach((group, index) => {
-            // Contenedor de cada grupo para separar visualmente
-            const groupWrapper = document.createElement('div');
-            groupWrapper.style.marginBottom = "30px";
-
-            const groupTitle = document.createElement('h3');
-            groupTitle.className = 'group-title';
-            groupTitle.textContent = group._id;
-            groupWrapper.appendChild(groupTitle);
-
-            const gridDiv = document.createElement('div');
-            gridDiv.className = 'grid-2';
-
-            group.modules.forEach((mod, i) => {
-                const style = styles[(index + i) % styles.length]; 
-                const btn = document.createElement('button');
-                btn.className = `menu-btn ${style.btn}`;
-                btn.onclick = () => startQuiz(mod.name);
-                btn.innerHTML = `<i data-lucide="${style.icon}"></i> ${mod.name} (${mod.count})`;
-                gridDiv.appendChild(btn);
-            });
-            groupWrapper.appendChild(gridDiv);
-
-            // LOGICA DE FALLOS POR GRUPO
-            const fallosDeEsteGrupo = globalFallos.filter(q => q.groupName === group._id);
-            if (fallosDeEsteGrupo.length > 0) {
-                const btnFallos = document.createElement('button');
-                btnFallos.className = 'menu-btn red-btn col-flex center';
-                btnFallos.style.marginTop = "10px";
-                btnFallos.style.width = "100%";
-                btnFallos.onclick = () => startFallos(group._id);
-                btnFallos.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="alert-triangle"></i> 
-                        <span>Repasar fallos de ${group._id} (${fallosDeEsteGrupo.length})</span>
-                    </div>
-                `;
-                groupWrapper.appendChild(btnFallos);
-            }
-
-            dynamicMenuContainer.appendChild(groupWrapper);
-        });
-        
-        lucide.createIcons(); 
+        renderGroupMenu();
     } catch (error) {
         dynamicMenuContainer.innerHTML = '<p style="color:red; text-align:center;">Error conectando al servidor.</p>';
     }
 }
 
+function renderGroupMenu() {
+    const btnBack = document.getElementById('btn-back-groups');
+    if (btnBack) btnBack.classList.add('hidden');
+    
+    const subtitle = document.getElementById('menu-main-subtitle');
+    if (subtitle) subtitle.textContent = "SELECCIONA UN TEMA";
+    
+    dynamicMenuContainer.innerHTML = '';
+
+    if(fetchedGroups.length === 0) {
+        dynamicMenuContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted)">No hay temas cargados. Usa el engranaje para administrarlos.</p>';
+        return;
+    }
+
+    const gridDiv = document.createElement('div');
+    gridDiv.className = 'grid-2';
+
+    fetchedGroups.forEach(group => {
+        const btn = document.createElement('button');
+        btn.className = 'menu-btn dark-btn'; 
+        btn.style.padding = "20px";
+        btn.innerHTML = `<i data-lucide="folder"></i> ${group._id}`;
+        btn.onclick = () => showModulesForGroup(group._id);
+        gridDiv.appendChild(btn);
+    });
+
+    dynamicMenuContainer.appendChild(gridDiv);
+    lucide.createIcons(); 
+}
+
+// FUNCIÓN ARREGLADA: Ya no está flotando
+function showModulesForGroup(groupName) {
+    const btnBack = document.getElementById('btn-back-groups');
+    if (btnBack) btnBack.classList.remove('hidden');
+    
+    const subtitle = document.getElementById('menu-main-subtitle');
+    if (subtitle) subtitle.textContent = groupName.toUpperCase();
+    
+    dynamicMenuContainer.innerHTML = '';
+
+    const group = fetchedGroups.find(g => g._id === groupName);
+    if (!group) return;
+
+    // 1. ORDENAMOS LOS MÓDULOS ALFABÉTICAMENTE
+    group.modules.sort((a, b) => a.name.localeCompare(b.name));
+
+    const gridDiv = document.createElement('div');
+    gridDiv.className = 'grid-2';
+
+    group.modules.forEach((mod) => {
+        const btn = document.createElement('button');
+        
+        // 2. IDENTIFICAMOS SI ES UN MÓDULO DE TEXTO PARA PONERLO AZUL
+        const isTextModule = mod.name.includes('Rellenar');
+        
+        if (isTextModule) {
+            btn.className = `menu-btn blue-btn`;
+        } else {
+            btn.className = `menu-btn dark-btn`;
+        }
+        
+        btn.style.justifyContent = "space-between"; 
+        btn.onclick = () => startQuiz(mod.name);
+        
+        // Icono dinámico: lápiz si es azul (rellenar), terminal si es oscuro (test)
+        const iconName = isTextModule ? 'edit-3' : 'terminal';
+
+        const perfectCount = perfectRuns[mod.name] || 0;
+        const perfectBadge = perfectCount > 0 
+            ? `<div style="color: #fbbf24; display: flex; align-items: center; gap: 4px; font-size: 0.9rem; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 8px;"><i data-lucide="crown" style="width: 16px;"></i> x${perfectCount}</div>` 
+            : '';
+
+        btn.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <i data-lucide="${iconName}"></i> 
+                <span style="text-align: left;">${mod.name} (${mod.count})</span>
+            </div>
+            ${perfectBadge}
+        `;
+        gridDiv.appendChild(btn);
+    });
+
+    dynamicMenuContainer.appendChild(gridDiv);
+
+    // Botón de repaso de fallos
+    const fallosDeEsteGrupo = globalFallos.filter(q => q.groupName === groupName);
+    if (fallosDeEsteGrupo.length > 0) {
+        const btnFallos = document.createElement('button');
+        btnFallos.className = 'menu-btn red-btn col-flex center';
+        btnFallos.style.marginTop = "20px";
+        btnFallos.style.width = "100%";
+        btnFallos.onclick = () => startFallos(groupName);
+        btnFallos.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="alert-triangle"></i> 
+                <span>Repasar fallos de este bloque (${fallosDeEsteGrupo.length})</span>
+            </div>
+        `;
+        dynamicMenuContainer.appendChild(btnFallos);
+    }
+
+    lucide.createIcons();
+}
+
+function startFallosGlobales() {
+    if (globalFallos.length === 0) return;
+    
+    selectedCat = 'fallos_globales';
+    queue = shuffleArray(globalFallos);
+    failedPool = [];
+    idx = 0;
+    correctsInSession = 0;
+    mode = 'quiz';
+    
+    quizTitle.textContent = `REPASO: TODOS LOS FALLOS`;
+    quizTitle.style.color = 'var(--red-main)';
+    
+    showScreen('quiz-container');
+    renderQuestion();
+}
+
 // ==========================================
 // 2. LÓGICA DEL JUEGO (QUIZ)
 // ==========================================
+
 function saveGlobalFallos() {
     localStorage.setItem('hacking_fallos_ut4', JSON.stringify(globalFallos));
-    // No llamamos a updateFallosCount porque ahora los botones son por grupo y se refrescan al volver al menú
 }
 
 async function startQuiz(moduleName) {
@@ -161,18 +230,21 @@ async function startQuiz(moduleName) {
         
         const data = await res.json();
         
+        // Mapeamos preguntas y reseteamos estado de sesión (status)
         queue = shuffleArray(data.questions.map(q => ({
             _id: q._id,
             q: q.question,
             options: q.type === 'choice' ? q.options : null,
             a: q.type === 'choice' ? q.options[q.correct] : q.correctAnswerText,
             explanation: q.explanation || "No hay explicación disponible para esta pregunta.",
-            groupName: q.groupName // Guardamos el grupo para saber dónde guardarlo si falla
+            groupName: q.groupName,
+            status: null // Estado de la pregunta en esta sesión: null, 'correct', 'incorrect'
         })));
 
         failedPool = [];
         idx = 0;
         correctsInSession = 0;
+        totalQuestions = queue.length; // Guardamos el total inicial para el % final
         mode = 'quiz';
         
         quizTitle.textContent = moduleName.toUpperCase();
@@ -186,15 +258,18 @@ async function startQuiz(moduleName) {
     }
 }
 
+// FUNCIÓN ARREGLADA: Eliminada la duplicada que había debajo de esta
 function startFallos(groupName) {
     const filtrados = globalFallos.filter(q => q.groupName === groupName);
     if (filtrados.length === 0) return;
     
     selectedCat = 'fallos';
-    queue = shuffleArray(filtrados);
+    // Mapeamos preguntas y reseteamos estado de sesión (status)
+    queue = shuffleArray(filtrados.map(q => ({ ...q, status: null })));
     failedPool = [];
     idx = 0;
     correctsInSession = 0;
+    totalQuestions = queue.length; // Guardamos el total inicial
     mode = 'quiz';
     
     quizTitle.textContent = `REPASO: ${groupName}`;
@@ -228,8 +303,7 @@ function renderQuestion() {
         reviewIndicator.classList.add('hidden');
     }
 
-    // Boton borrar solo si estamos repasando fallos guardados
-    yaMeLaSeContainer.classList.toggle('hidden', selectedCat !== 'fallos');
+    yaMeLaSeContainer.classList.toggle('hidden', selectedCat !== 'fallos' && selectedCat !== 'fallos_globales');
 
     if (current.options) {
         textInputContainer.classList.add('hidden');
@@ -256,11 +330,30 @@ function renderQuestion() {
 
 function renderNavDots() {
     navButtonsContainer.innerHTML = '';
-    queue.forEach((_, i) => {
+    queue.forEach((q, i) => {
         const dot = document.createElement('div');
+        // Clase base y clase 'current'
         dot.className = `nav-dot ${i === idx ? 'current' : ''}`;
+        
+        // Recuperamos el color si ya se contestó antes (al navegar de vuelta)
+        if (q.status === 'correct') dot.classList.add('correct');
+        else if (q.status === 'incorrect') dot.classList.add('incorrect');
+
         dot.textContent = i + 1;
         dot.id = `nav-dot-${i}`;
+        
+        // Navegación clicable (SOLO en modo Quiz normal, no en Repaso/Castigo)
+        if (mode === 'quiz') {
+            dot.style.cursor = 'pointer';
+            dot.onclick = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                idx = i;
+                renderQuestion();
+            };
+        } else {
+            dot.style.cursor = 'default';
+        }
+        
         navButtonsContainer.appendChild(dot);
     });
     const activeDot = document.getElementById(`nav-dot-${idx}`);
@@ -270,8 +363,12 @@ function renderNavDots() {
 function handleOptionClick(btnClicked, selected, correct) {
     if (isAnswered) return;
     isAnswered = true;
+    const current = queue[idx];
     const isCorrect = selected === correct;
-    if(isCorrect) correctsInSession++;
+    
+    // Sumar al porcentaje SOLO si es la primera vez que se contesta esta pregunta en la sesión
+    if (isCorrect && !current.status) correctsInSession++;
+    
     optionsContainer.querySelectorAll('.option-btn').forEach(b => {
         b.disabled = true;
         if (b.textContent === correct) b.classList.add('correct-ans');
@@ -288,7 +385,10 @@ function handleSubmitText() {
     isAnswered = true;
     const current = queue[idx];
     const isCorrect = answerRaw === current.a.toUpperCase();
-    if(isCorrect) correctsInSession++;
+    
+    // Sumar al porcentaje SOLO si es la primera vez que se contesta
+    if (isCorrect && !current.status) correctsInSession++;
+    
     textAnswer.disabled = true;
     btnValidate.classList.add('hidden');
     textAnswer.classList.add(isCorrect ? 'correct-input' : 'wrong-input');
@@ -298,7 +398,18 @@ function handleSubmitText() {
 function updateStateAndTimers(isCorrect) {
     const current = queue[idx];
     btnNext.disabled = false;
-    document.getElementById(`nav-dot-${idx}`).classList.add(isCorrect ? 'correct' : 'incorrect');
+    
+    // Cambiamos el color del círculo inmediatamente
+    const dot = document.getElementById(`nav-dot-${idx}`);
+    if (dot) dot.classList.add(isCorrect ? 'correct' : 'incorrect');
+
+    // Miramos si la pregunta ya se había contestado antes en esta sesión al navegar atrás
+    const alreadyAnsweredInSession = !!current.status;
+    
+    // Guardamos el estado para que los circulitos no pierdan el color al navegar
+    if (!alreadyAnsweredInSession) {
+        current.status = isCorrect ? 'correct' : 'incorrect';
+    }
 
     if (!isCorrect) {
         feedbackArea.classList.remove('hidden');
@@ -307,41 +418,52 @@ function updateStateAndTimers(isCorrect) {
             <div style="color:#f4f4f5; margin-bottom:10px;">Respuesta: <span style="color:#10b981;">${current.a}</span></div>
             <div style="color:#a1a1aa; font-size:0.75rem; font-weight:400; text-transform:none; line-height:1.4;">${current.explanation}</div>
         `;
-        // Guardar en la bolsa de fallos global (por grupo)
-        if (!globalFallos.find(item => item.q === current.q)) {
-            globalFallos.push(current);
-            saveGlobalFallos();
+        
+        // Solo gestionamos bolsas de fallos si es la PRIMERA vez que se contesta
+        if (!alreadyAnsweredInSession) {
+            // Guardar en la bolsa de fallos global (localStorage)
+            if (!globalFallos.find(item => item.q === current.q)) {
+                globalFallos.push(current);
+                saveGlobalFallos();
+            }
+            // Bolsa de repaso de la sesión actual
+            if (mode === 'quiz' && !failedPool.find(item => item.q === current.q)) {
+                failedPool.push({ ...current, hits: 0 });
+            }
         }
-        // Bolsa de repaso de la sesión actual
-        if (mode === 'quiz' && !failedPool.find(item => item.q === current.q)) {
-            failedPool.push({ ...current, hits: 0 });
-        }
+        
         if (mode === 'review') {
             current.hits = 0;
             customPhrase.textContent = "Fallo. El contador vuelve a 0.";
         }
-        timeoutId = setTimeout(() => handleNext(), 5000);
+        
+        timeoutId = setTimeout(() => handleNext(), 2500); 
     } else {
         if (mode === 'review') {
             current.hits = (current.hits || 0) + 1;
             customPhrase.textContent = `Acierto ${current.hits}/3 para limpiar este fallo.`;
         }
-        timeoutId = setTimeout(() => handleNext(), 2000);
+        
+        timeoutId = setTimeout(() => handleNext(), 800); 
     }
 }
 
 function finishQuiz() {
-    const total = queue.length;
-    const percent = Math.round((correctsInSession / total) * 100);
+    const percent = Math.round((correctsInSession / totalQuestions) * 100);
+    
+    if (percent === 100 && selectedCat !== 'fallos' && selectedCat !== 'fallos_globales') {
+        perfectRuns[selectedCat] = (perfectRuns[selectedCat] || 0) + 1;
+        localStorage.setItem('hacking_perfect_runs', JSON.stringify(perfectRuns));
+    }
     
     let phrase = "";
     let icon = "trophy";
     let color = "#eab308";
 
-    if (percent === 100) { phrase = "¡GOD MODE! ⚡ Dominas el sistema."; icon = "zap"; color = "#facc15"; }
-    else if (percent >= 80) { phrase = "¡Excelente! Casi perfecto. ⚔️"; icon = "shield-check"; color = "#10b981"; }
-    else if (percent >= 50) { phrase = "Aprobado. 📚 Sigue practicando."; icon = "book-open"; color = "#fb923c"; }
-    else { phrase = "Script Kiddie... 💻 Toca estudiar más."; icon = "alert-circle"; color = "#ef4444"; }
+    if (percent === 100) { phrase = "¡GOD MODE ABSOLUTO! ⚡ Dominas el sistema al 100%."; icon = "zap"; color = "#facc15"; }
+    else if (percent >= 80) { phrase = "¡Ea! Casi perfecto, no esta mal, pero sabes que puedes mejorar. ⚔️"; icon = "shield-check"; color = "#10b981"; }
+    else if (percent >= 50) { phrase = "Aprobado. 📚 Pero vamos que sigues siendo mas tonto que una gallina."; icon = "book-open"; color = "#fb923c"; }
+    else { phrase = "Seras paquete, vaya mierda has hecho, estaras orgulloso...."; icon = "alert-circle"; color = "#ef4444"; }
 
     const summaryCard = document.querySelector('.summary-card');
     summaryCard.innerHTML = `
@@ -357,16 +479,17 @@ function finishQuiz() {
 
 function handleNext() {
     if (timeoutId) clearTimeout(timeoutId);
+    
     if (mode === 'quiz') {
         if (idx + 1 < queue.length) {
             idx++;
             renderQuestion();
         } else if (failedPool.length > 0) {
-            queue = shuffleArray(failedPool);
+            queue = shuffleArray(failedPool).map(q => ({ ...q, status: null }));
             failedPool = [];
             idx = 0;
             mode = 'review';
-            customPhrase.textContent = "MODO REPASO: 3 aciertos para cada fallo.";
+            customPhrase.textContent = "MODO REPASO: Responde bien 3 veces cada pregunta fallada.";
             renderQuestion();
         } else {
             finishQuiz();
@@ -374,15 +497,20 @@ function handleNext() {
     } else if (mode === 'review') {
         const current = queue[idx];
         let nextQueue = [...queue];
+
+        nextQueue.splice(idx, 1);
+
         if (current.hits >= 3) {
-            nextQueue.splice(idx, 1);
             if (nextQueue.length === 0) return finishQuiz();
         } else {
-            nextQueue.splice(idx, 1);
-            nextQueue.push(current);
+            const espaciado = Math.floor(Math.random() * 3) + 3; 
+            const insertIndex = Math.min(nextQueue.length, espaciado);
+            nextQueue.splice(insertIndex, 0, current);
         }
+        
+        current.status = null; 
         queue = nextQueue;
-        idx = 0;
+        idx = 0; 
         renderQuestion();
     }
 }
@@ -413,10 +541,29 @@ async function showAdmin() {
         const groups = await res.json();
         list.innerHTML = '';
         groups.forEach(g => {
+            const groupHeader = document.createElement('div');
+            groupHeader.style.display = "flex";
+            groupHeader.style.alignItems = "center";
+            groupHeader.style.justifyContent = "space-between";
+            groupHeader.style.marginBottom = "10px";
+            groupHeader.style.marginTop = "15px";
+
             const h4 = document.createElement('h4'); 
             h4.textContent = g._id; 
             h4.className = "group-title"; 
-            list.appendChild(h4);
+            h4.style.margin = "0";
+
+            const delGroupBtn = document.createElement('button');
+            delGroupBtn.innerHTML = "🗑️";
+            delGroupBtn.className = "menu-btn red-btn"; 
+            delGroupBtn.style.padding = "4px 8px";
+            delGroupBtn.style.width = "auto";
+            delGroupBtn.title = "Borrar Tema/Grupo completo";
+            delGroupBtn.onclick = () => deleteEntireGroup(g._id);
+
+            groupHeader.appendChild(h4);
+            groupHeader.appendChild(delGroupBtn);
+            list.appendChild(groupHeader);
 
             g.modules.forEach(m => {
                 const container = document.createElement('div');
@@ -437,9 +584,9 @@ async function showAdmin() {
                 delBtn.style.border = "none";
                 delBtn.style.cursor = "pointer";
                 delBtn.style.padding = "5px";
-                delBtn.title = "Borrar módulo completo";
+                delBtn.title = "Borrar módulo";
                 delBtn.onclick = (e) => {
-                    e.stopPropagation(); // Evita que se seleccione el módulo al intentar borrarlo
+                    e.stopPropagation(); 
                     deleteEntireModule(m.name);
                 };
 
@@ -451,7 +598,6 @@ async function showAdmin() {
     } catch(e) { list.innerHTML = 'Error.'; }
 }
 
-// Nueva función para borrar el módulo entero
 async function deleteEntireModule(moduleName) {
     const confirmacion = confirm(`⚠️ ¡ATENCIÓN! ⚠️\n¿Estás seguro de que quieres borrar TODAS las preguntas de "${moduleName}"?\nEsta acción no se puede deshacer.`);
     
@@ -464,7 +610,7 @@ async function deleteEntireModule(moduleName) {
         
         if (res.ok) {
             alert("Módulo eliminado correctamente.");
-            showAdmin(); // Refrescar la lista de módulos
+            showAdmin(); 
             document.getElementById('admin-questions-list').innerHTML = '<p style="color:gray;">Módulo eliminado.</p>';
             document.getElementById('admin-current-module').textContent = 'Selecciona un módulo';
         } else {
@@ -474,6 +620,31 @@ async function deleteEntireModule(moduleName) {
         alert("Fallo de conexión con el servidor.");
     }
 }
+
+async function deleteEntireGroup(groupName) {
+    const confirmacion = confirm(`⚠️ ¡PELIGRO NUCLEAR! ⚠️\n¿Estás seguro de que quieres borrar EL TEMA ENTERO "${groupName}" y TODOS los módulos que contiene?\nEsta acción no se puede deshacer.`);
+    
+    if (!confirmacion) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/group/${encodeURIComponent(groupName)}`, {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            alert("Tema eliminado correctamente.");
+            showAdmin(); 
+            document.getElementById('admin-questions-list').innerHTML = '<p style="color:gray;">Módulos eliminados.</p>';
+            document.getElementById('admin-current-module').textContent = 'Selecciona un módulo';
+        } else {
+            alert("Error al intentar eliminar el tema.");
+        }
+    } catch (e) {
+        alert("Fallo de conexión con el servidor.");
+    }
+}
+
+// FUNCIÓN ARREGLADA: Guarda el JSON globalmente para que el botón de Editar no rompa el HTML
 async function loadAdminQuestions(moduleName, btnElement) {
     document.querySelectorAll('.module-item').forEach(b => b.classList.remove('active'));
     if(btnElement) btnElement.classList.add('active');
@@ -484,17 +655,31 @@ async function loadAdminQuestions(moduleName, btnElement) {
     try {
         const res = await fetch(`${API_BASE_URL}/admin/questions/${encodeURIComponent(moduleName)}`);
         const questions = await res.json();
+        
+        currentAdminQuestions = questions; // Guardamos las preguntas en la variable global
+        
         qList.innerHTML = questions.length ? '' : 'Vacio.';
+        
         questions.forEach(q => {
             const div = document.createElement('div');
             div.className = 'q-list-item';
+            
+            let answerText = '';
+            if (q.type === 'text') {
+                answerText = q.correctAnswerText || 'Sin respuesta';
+            } else if (q.type === 'choice' && q.options) {
+                answerText = q.options[q.correct] || 'Sin respuesta';
+            }
+
+            // Cambiado el onClick de Editar para pasar solo el ID y no todo el JSON
             div.innerHTML = `
-                <div style="flex-grow:1">
-                    <p style="font-size:0.9rem; font-weight:bold">${q.question}</p>
+                <div style="flex-grow:1; padding-right: 15px;">
+                    <p style="font-size:0.9rem; font-weight:bold; margin-bottom: 5px;">${q.question}</p>
                     <span style="font-size:0.7rem; color:var(--text-muted)">Tipo: ${q.type === 'choice' ? 'Múltiple' : 'Texto'}</span>
+                    <span style="font-size:0.75rem; color:#10b981; margin-left: 10px; font-family: monospace;">R: ${answerText}</span>
                 </div>
-                <div class="q-actions">
-                    <button class="q-btn q-edit" onclick='openQuestionModal(${JSON.stringify(q).replace(/'/g, "&apos;")})'>✏️</button>
+                <div class="q-actions" style="display: flex; gap: 5px;">
+                    <button class="q-btn q-edit" onclick="openQuestionModal('${q._id}')">✏️</button>
                     <button class="q-btn q-delete" onclick="deleteQuestion('${q._id}')">🗑️</button>
                 </div>`;
             qList.appendChild(div);
@@ -504,26 +689,50 @@ async function loadAdminQuestions(moduleName, btnElement) {
 
 function toggleQuestionType() {
     const isChoice = document.getElementById('q-type').value === 'choice';
+    
+    // Ocultar o mostrar las secciones
     document.getElementById('type-choice-fields').classList.toggle('hidden', !isChoice);
     document.getElementById('type-text-fields').classList.toggle('hidden', isChoice);
+    
+    // --- FIX DEL ERROR DE CONSOLA "NOT FOCUSABLE" ---
+    // Quitamos la obligación (required) al campo que esté oculto para que el navegador no se bloquee.
+    const radioBtn = document.querySelector('input[name="q-correct"][value="0"]');
+    const textBtn = document.getElementById('q-correctText');
+    
+    if (isChoice) {
+        if (radioBtn) radioBtn.required = true;
+        if (textBtn) textBtn.required = false;
+    } else {
+        if (radioBtn) radioBtn.required = false;
+        if (textBtn) textBtn.required = true;
+    }
 }
 
-function openQuestionModal(qData = null) {
+// FUNCIÓN ARREGLADA: Ahora recibe el ID y busca la pregunta en la variable global
+function openQuestionModal(qId = null) {
     document.getElementById('question-modal').classList.remove('hidden');
     document.getElementById('question-form').reset();
-    document.getElementById('q-id').value = qData ? qData._id : '';
-    if (qData) {
+    
+    if (qId) {
+        // Busca los datos en la memoria
+        const qData = currentAdminQuestions.find(q => q._id === qId);
+        if (!qData) return;
+
+        document.getElementById('q-id').value = qData._id;
         document.getElementById('modal-title').textContent = 'Editar Pregunta';
         document.getElementById('q-group').value = qData.groupName || 'General';
         document.getElementById('q-module').value = qData.moduleName;
         document.getElementById('q-text').value = qData.question;
         document.getElementById('q-type').value = qData.type || 'choice';
-        if (qData.type === 'text') document.getElementById('q-correctText').value = qData.correctAnswerText;
-        else {
+        
+        if (qData.type === 'text') {
+            document.getElementById('q-correctText').value = qData.correctAnswerText;
+        } else {
             qData.options?.forEach((opt, i) => { if(i<4) document.getElementById(`q-opt-${i}`).value = opt; });
             if (qData.correct !== undefined) document.querySelector(`input[name="q-correct"][value="${qData.correct}"]`).checked = true;
         }
     } else {
+        document.getElementById('q-id').value = '';
         document.getElementById('modal-title').textContent = 'Nueva Pregunta';
         if (adminCurrentModule) document.getElementById('q-module').value = adminCurrentModule;
     }
@@ -534,13 +743,26 @@ async function saveQuestion(e) {
     e.preventDefault();
     const id = document.getElementById('q-id').value;
     const type = document.getElementById('q-type').value;
+    
+    let groupVal = document.getElementById('q-group').value.trim();
+    let modVal = document.getElementById('q-module').value.trim();
+
+    if (!groupVal) {
+        groupVal = 'Sueltos';
+    }
+
+    if (type === 'text') {
+        modVal = 'Rellenar';
+    }
+
     const payload = {
-        groupName: document.getElementById('q-group').value,
-        moduleName: document.getElementById('q-module').value,
+        groupName: groupVal,
+        moduleName: modVal,
         question: document.getElementById('q-text').value,
         type: type,
         explanation: "Actualiza este campo en el administrador si quieres feedback personalizado."
     };
+    
     if (type === 'choice') {
         payload.options = [0,1,2,3].map(i => document.getElementById(`q-opt-${i}`).value).filter(v => v);
         const cor = document.querySelector('input[name="q-correct"]:checked');
@@ -549,6 +771,7 @@ async function saveQuestion(e) {
     } else {
         payload.correctAnswerText = document.getElementById('q-correctText').value;
     }
+    
     try {
         await fetch(id ? `${API_BASE_URL}/admin/question/${id}` : `${API_BASE_URL}/admin/question`, {
             method: id ? 'PUT' : 'POST',
@@ -557,7 +780,9 @@ async function saveQuestion(e) {
         });
         document.getElementById('question-modal').classList.add('hidden');
         loadAdminQuestions(payload.moduleName);
-    } catch(e) { alert("Error."); }
+    } catch(e) { 
+        alert("Error al guardar la pregunta."); 
+    }
 }
 
 async function deleteQuestion(id) {
@@ -570,16 +795,67 @@ async function deleteQuestion(id) {
 
 async function uploadJSON() {
     const text = document.getElementById('json-input').value;
+    
     try {
+        let questionsArray = JSON.parse(text);
+        
+        if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
+            return alert("El JSON debe ser un array válido con datos.");
+        }
+
+        let finalArray = [];
+        const modulesMap = {};
+
+        questionsArray.forEach(q => {
+            q.groupName = q.groupName || 'Sueltos';
+            
+            if (q.type === 'text') {
+                q.moduleName = 'Rellenar';
+            }
+            
+            const mapKey = `${q.groupName}_${q.moduleName}`;
+            if (!modulesMap[mapKey]) modulesMap[mapKey] = [];
+            modulesMap[mapKey].push(q);
+        });
+
+        for (const key in modulesMap) {
+            const qs = modulesMap[key];
+            const modName = qs[0].moduleName; 
+            
+            if (qs.length > 25) {
+                const numParts = Math.ceil(qs.length / 25);
+                const idealChunkSize = Math.ceil(qs.length / numParts);
+                
+                for (let i = 0; i < numParts; i++) {
+                    const chunk = qs.slice(i * idealChunkSize, (i + 1) * idealChunkSize);
+                    chunk.forEach(q => {
+                        finalArray.push({ 
+                            ...q, 
+                            moduleName: `${modName} (Parte ${i + 1})` 
+                        });
+                    });
+                }
+            } else {
+                finalArray.push(...qs);
+            }
+        }
+
         const res = await fetch(`${API_BASE_URL}/admin/create-module`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: text
+            body: JSON.stringify(finalArray)
         });
-        if(res.ok) {
-            alert("Subido correctamente.");
+        
+        if (res.ok) {
+            alert("Subido y organizado correctamente.");
             document.getElementById('upload-json-modal').classList.add('hidden');
             showAdmin();
+        } else {
+            alert("Error del servidor al guardar.");
         }
-    } catch(e) { alert("Error JSON."); }
+        
+    } catch(e) { 
+        console.error(e);
+        alert("Error JSON: Revisa que el texto tenga un formato JSON válido."); 
+    }
 }
