@@ -12,7 +12,7 @@ let correctsInSession = 0;
 let mode = 'quiz'; // 'quiz' o 'review'
 let isAnswered = false;
 let timeoutId = null;
-let perfectRuns = JSON.parse(localStorage.getItem('hacking_perfect_runs')) || {};
+let perfectRuns = {};
 let totalQuestions = 0; // Para calcular bien el % final
 
 // --- Elementos DOM Pantallas ---
@@ -84,9 +84,12 @@ async function loadMainMenu() {
     dynamicMenuContainer.innerHTML = '<p style="color:gray; text-align:center;">Cargando temas...</p>';
     
     try {
-        const res = await fetch(`${API_BASE_URL}/menu`);
-        fetchedGroups = await res.json(); 
-        
+      const [resMenu, resRuns] = await Promise.all([
+            fetch(`${API_BASE_URL}/menu`),
+            fetch(`${API_BASE_URL}/perfect-runs`)
+        ]);
+        fetchedGroups = await resMenu.json(); 
+        perfectRuns = await resRuns.json();
         renderGroupMenu();
     } catch (error) {
         dynamicMenuContainer.innerHTML = '<p style="color:red; text-align:center;">Error conectando al servidor.</p>';
@@ -449,11 +452,15 @@ function updateStateAndTimers(isCorrect) {
 }
 
 function finishQuiz() {
-    const percent = Math.round((correctsInSession / totalQuestions) * 100);
+   const percent = Math.round((correctsInSession / totalQuestions) * 100);
     
+    // SI ES 100%, ENVIAMOS A LA BASE DE DATOS
     if (percent === 100 && selectedCat !== 'fallos' && selectedCat !== 'fallos_globales') {
-        perfectRuns[selectedCat] = (perfectRuns[selectedCat] || 0) + 1;
-        localStorage.setItem('hacking_perfect_runs', JSON.stringify(perfectRuns));
+        fetch(`${API_BASE_URL}/perfect-runs/${encodeURIComponent(selectedCat)}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                perfectRuns[selectedCat] = data.count; // Sincronizamos localmente
+            });
     }
     
     let phrase = "";

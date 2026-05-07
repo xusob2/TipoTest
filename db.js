@@ -33,6 +33,18 @@ const ReportSchema = new mongoose.Schema({
     reportCount: { type: Number, default: 1 },
     date: { type: Date, default: Date.now }
 });
+// Nuevo esquema para récords perfectos
+const PerfectRunSchema = new mongoose.Schema({
+    moduleName: { type: String, required: true, unique: true },
+    count: { type: Number, default: 0 }
+});
+
+module.exports = {
+    Question: mongoose.model('Question', QuestionSchema),
+    Score: mongoose.model('Score', ScoreSchema),
+    Report: mongoose.model('Report', ReportSchema),
+    PerfectRun: mongoose.model('PerfectRun', PerfectRunSchema) // Añade esta línea
+};
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('✅ Conexión a MongoDB exitosa.'))

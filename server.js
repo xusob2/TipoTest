@@ -81,7 +81,7 @@ app.post('/api/admin/question', async (req, res) => {
     }
 });
 
-// Actualizar una pregunta existente
+
 // Actualizar una pregunta existente
 app.put('/api/admin/question/:id', async (req, res) => {
     try {
@@ -146,7 +146,33 @@ app.post('/api/admin/create-module', async (req, res) => {
         res.status(500).json({ message: 'Error al procesar JSON en el servidor.' });
     }
 });
+app.get('/api/perfect-runs', async (req, res) => {
+    try {
+        const runs = await PerfectRun.find();
+        // Convertimos el array de la DB en un objeto fácil de usar para el JS: { "Meterpreter": 3, "Nmap": 1 }
+        const runsObj = {};
+        runs.forEach(r => runsObj[r.moduleName] = r.count);
+        res.json(runsObj);
+    } catch (error) {
+        res.status(500).json({ message: 'Error al obtener récords.' });
+    }
+});
 
+// Incrementar récord perfecto de un módulo
+app.post('/api/perfect-runs/:moduleName', async (req, res) => {
+    try {
+        const { moduleName } = req.params;
+        // Si no existe lo crea, si existe le suma 1 al contador
+        const record = await PerfectRun.findOneAndUpdate(
+            { moduleName },
+            { $inc: { count: 1 } },
+            { upsert: true, returnDocument: 'after' }
+        );
+        res.json(record);
+    } catch (error) {
+        res.status(500).json({ message: 'Error al guardar récord.' });
+    }
+});
 // --- FRONTEND ESTÁTICO ---
 const FRONTEND_DIR = path.join(__dirname, 'www'); 
 app.use(express.static(FRONTEND_DIR));
