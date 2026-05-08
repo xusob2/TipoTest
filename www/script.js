@@ -369,8 +369,8 @@ function handleOptionClick(btnClicked, selected, correct) {
     const current = queue[idx];
     const isCorrect = selected === correct;
     
-    // Sumar al porcentaje SOLO si es la primera vez que se contesta esta pregunta en la sesión
-    if (isCorrect && !current.status) correctsInSession++;
+    // Sumar al porcentaje SOLO si es la primera vez que se contesta Y estamos en el test normal (no en castigo)
+    if (mode === 'quiz' && isCorrect && !current.status) correctsInSession++;
     
     optionsContainer.querySelectorAll('.option-btn').forEach(b => {
         b.disabled = true;
@@ -389,8 +389,8 @@ function handleSubmitText() {
     const current = queue[idx];
     const isCorrect = answerRaw === current.a.toUpperCase();
     
-    // Sumar al porcentaje SOLO si es la primera vez que se contesta
-    if (isCorrect && !current.status) correctsInSession++;
+    // Sumar al porcentaje SOLO si es la primera vez que se contesta Y estamos en el test normal
+    if (mode === 'quiz' && isCorrect && !current.status) correctsInSession++;
     
     textAnswer.disabled = true;
     btnValidate.classList.add('hidden');
@@ -424,13 +424,13 @@ function updateStateAndTimers(isCorrect) {
         
         // Solo gestionamos bolsas de fallos si es la PRIMERA vez que se contesta
         if (!alreadyAnsweredInSession) {
-            // Guardar en la bolsa de fallos global (localStorage)
-            if (!globalFallos.find(item => item.q === current.q)) {
+            // ¡OJO AQUÍ! Usamos _id con barra baja
+            if (!globalFallos.find(item => item._id === current._id)) {
                 globalFallos.push(current);
                 saveGlobalFallos();
             }
             // Bolsa de repaso de la sesión actual
-            if (mode === 'quiz' && !failedPool.find(item => item.q === current.q)) {
+            if (mode === 'quiz' && !failedPool.find(item => item._id === current._id)) {
                 failedPool.push({ ...current, hits: 0 });
             }
         }
@@ -524,9 +524,11 @@ function handleNext() {
 
 function removeFromFallos() {
     if (timeoutId) clearTimeout(timeoutId);
-    globalFallos = globalFallos.filter(q => q.q !== queue[idx].q);
+    // Usamos _id en lugar de comparar por el texto de la pregunta
+    globalFallos = globalFallos.filter(q => q._id !== queue[idx]._id);
     saveGlobalFallos();
     queue.splice(idx, 1);
+    
     if (queue.length === 0) showScreen('summary-screen');
     else {
         if (idx >= queue.length) idx = 0;
