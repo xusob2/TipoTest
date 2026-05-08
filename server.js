@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path'); 
-const { Question, Score, Report,PerfectRun,Fallo } = require('./db');
+const { Question, Score, Report,PerfectRun,Fallo,LastPlayed } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000; 
 
@@ -208,6 +208,35 @@ app.delete('/api/fallos/:id', async (req, res) => {
         res.status(500).json({ message: 'Error al eliminar fallo.' });
     }
 });
+
+// --- RUTAS DE ÚLTIMA VEZ JUGADO ---
+app.get('/api/last-played', async (req, res) => {
+    try {
+        const records = await LastPlayed.find();
+        const result = {};
+        records.forEach(r => result[r.moduleName] = r.date);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Error obteniendo fechas.' });
+    }
+});
+
+app.post('/api/last-played', async (req, res) => {
+    try {
+        const { moduleName, groupName } = req.body;
+        const record = await LastPlayed.findOneAndUpdate(
+            { moduleName },
+            { moduleName, groupName, date: new Date() },
+            { upsert: true, returnDocument: 'after' }
+        );
+        res.json({ date: record.date });
+    } catch (error) {
+        res.status(500).json({ message: 'Error guardando fecha.' });
+    }
+});
+
+
+
 // --- FRONTEND ESTÁTICO ---
 const FRONTEND_DIR = path.join(__dirname, 'www'); 
 app.use(express.static(FRONTEND_DIR));

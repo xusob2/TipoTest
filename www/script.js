@@ -14,7 +14,21 @@ let isAnswered = false;
 let timeoutId = null;
 let perfectRuns = {};
 let totalQuestions = 0; // Para calcular bien el % final
+let lastPlayedData = {};
+let currentGroup = null;
 
+
+function timeAgo(dateString) {
+    if (!dateString) return "Nunca";
+    const diff = Date.now() - new Date(dateString).getTime();
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return "Hace un momento";
+    if (min < 60) return `Hace ${min} min`;
+    const hours = Math.floor(min / 60);
+    if (hours < 24) return `Hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `Hace ${days} d`;
+}
 // --- Elementos DOM Pantallas ---
 const screens = {
     'main-menu': document.getElementById('main-menu'),
@@ -84,21 +98,22 @@ async function loadMainMenu() {
     dynamicMenuContainer.innerHTML = '<p style="color:gray; text-align:center;">Cargando temas...</p>';
     
     try {
-      const [resMenu, resRuns, resFallos] = await Promise.all([
+      const [resMenu, resRuns, resFallos, resLastPlayed] = await Promise.all([
             fetch(`${API_BASE_URL}/menu`),
             fetch(`${API_BASE_URL}/perfect-runs`),
-            fetch(`${API_BASE_URL}/fallos`)
+            fetch(`${API_BASE_URL}/fallos`),
+            fetch(`${API_BASE_URL}/last-played`) // AÑADIDO
         ]);
         fetchedGroups = await resMenu.json(); 
         perfectRuns = await resRuns.json();
-        globalFallos = await resFallos.json(); // GUARDAMOS LOS FALLOS DE LA BASE DE DATOS
+        globalFallos = await resFallos.json();
+        lastPlayedData = await resLastPlayed.json(); // GUARDAMOS FECHAS
         
         renderGroupMenu();
     } catch (error) {
         dynamicMenuContainer.innerHTML = '<p style="color:red; text-align:center;">Error conectando al servidor.</p>';
     }
 }
-
 function renderGroupMenu() {
     const btnBack = document.getElementById('btn-back-groups');
     if (btnBack) btnBack.classList.add('hidden');
@@ -131,6 +146,7 @@ function renderGroupMenu() {
 
 // FUNCIÓN ARREGLADA: Ya no está flotando
 function showModulesForGroup(groupName) {
+    currentGroup = groupName; // Guardamos dónde estamos para volver luego
     const btnBack = document.getElementById('btn-back-groups');
     if (btnBack) btnBack.classList.remove('hidden');
     
@@ -142,39 +158,56 @@ function showModulesForGroup(groupName) {
     const group = fetchedGroups.find(g => g._id === groupName);
     if (!group) return;
 
-    // 1. ORDENAMOS LOS MÓDULOS ALFABÉTICAMENTE
     group.modules.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Buscar cuál fue el último jugado en este grupo
+    let latestTime = 0;
+    let latestModule = null;
+    group.modules.forEach(mod => {
+        if (lastPlayedData[mod.name]) {
+            const time = new Date(lastPlayedData[mod.name]).getTime();
+            if (time > latestTime) {
+                latestTime = time;
+                latestModule = mod.name;
+            }
+        }
+    });
 
     const gridDiv = document.createElement('div');
     gridDiv.className = 'grid-2';
 
     group.modules.forEach((mod) => {
         const btn = document.createElement('button');
-        
-        // 2. IDENTIFICAMOS SI ES UN MÓDULO DE TEXTO PARA PONERLO AZUL
         const isTextModule = mod.name.includes('Rellenar');
+        const isLatest = mod.name === latestModule; // ¿Es el más reciente?
         
-        if (isTextModule) {
-            btn.className = `menu-btn blue-btn`;
-        } else {
-            btn.className = `menu-btn dark-btn`;
+        // Colores y resaltados
+        btn.className = `menu-btn ${isTextModule ? 'blue-btn' : 'dark-btn'}`;
+        if (isLatest) {
+            // Le damos un borde y brillo amarillo si es el último jugado
+            btn.style.boxShadow = "0 0 15px rgba(250, 204, 21, 0.3)";
+            btn.style.borderColor = "#facc15"; 
         }
-        
+
         btn.style.justifyContent = "space-between"; 
         btn.onclick = () => startQuiz(mod.name);
         
-        // Icono dinámico: lápiz si es azul (rellenar), terminal si es oscuro (test)
         const iconName = isTextModule ? 'edit-3' : 'terminal';
-
         const perfectCount = perfectRuns[mod.name] || 0;
         const perfectBadge = perfectCount > 0 
             ? `<div style="color: #fbbf24; display: flex; align-items: center; gap: 4px; font-size: 0.9rem; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 8px;"><i data-lucide="crown" style="width: 16px;"></i> x${perfectCount}</div>` 
             : '';
 
+        // Texto del tiempo transcurrido
+        const timeText = timeAgo(lastPlayedData[mod.name]);
+
         btn.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <i data-lucide="${iconName}"></i> 
-                <span style="text-align: left;">${mod.name} (${mod.count})</span>
+            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+                <div style="display: flex; align-items: center; gap: 12px; color: ${isLatest ? '#facc15' : 'inherit'};">
+                    <i data-lucide="${iconName}"></i> 
+                    <span style="text-align: left; font-weight: ${isLatest ? '900' : 'bold'};">${mod.name} (${mod.count})</span>
+                </div>
+                <span style="font-size: 0.65rem; color: #a1a1aa; padding-left: 30px; letter-spacing: 1px;">🗓️ ${timeText}</span>
             </div>
             ${perfectBadge}
         `;
@@ -183,23 +216,20 @@ function showModulesForGroup(groupName) {
 
     dynamicMenuContainer.appendChild(gridDiv);
 
-    // Botón de repaso de fallos (Ahora dividido en bloques de 15)
+    // Botones de Repaso de Fallos...
     const fallosDeEsteGrupo = globalFallos.filter(q => q.groupName === groupName);
     if (fallosDeEsteGrupo.length > 0) {
-        const chunkSize = 15; // Máximo de preguntas por test de fallos
+        const chunkSize = 15;
         const numParts = Math.ceil(fallosDeEsteGrupo.length / chunkSize);
 
         for (let i = 0; i < numParts; i++) {
-            // Calculamos cuántas hay en este trozo exacto
             const chunkCount = fallosDeEsteGrupo.slice(i * chunkSize, (i + 1) * chunkSize).length;
             const partLabel = numParts > 1 ? ` (Parte ${i + 1})` : '';
 
             const btnFallos = document.createElement('button');
             btnFallos.className = 'menu-btn red-btn col-flex center';
-            btnFallos.style.marginTop = i === 0 ? "20px" : "10px"; // Separamos el primero del resto
+            btnFallos.style.marginTop = i === 0 ? "20px" : "10px";
             btnFallos.style.width = "100%";
-            
-            // Le pasamos a la función desde dónde hasta dónde tiene que cortar
             btnFallos.onclick = () => startFallos(groupName, i * chunkSize, chunkSize);
             
             btnFallos.innerHTML = `
@@ -211,7 +241,6 @@ function showModulesForGroup(groupName) {
             dynamicMenuContainer.appendChild(btnFallos);
         }
     }
-
     lucide.createIcons();
 }
 
@@ -489,15 +518,24 @@ function updateStateAndTimers(isCorrect) {
 }
 
 function finishQuiz() {
-   const percent = Math.round((correctsInSession / totalQuestions) * 100);
+    const percent = Math.round((correctsInSession / totalQuestions) * 100);
     
-    // SI ES 100%, ENVIAMOS A LA BASE DE DATOS
+    // GUARDAR 100% PERFECTO
     if (percent === 100 && selectedCat !== 'fallos' && selectedCat !== 'fallos_globales') {
         fetch(`${API_BASE_URL}/perfect-runs/${encodeURIComponent(selectedCat)}`, { method: 'POST' })
             .then(res => res.json())
-            .then(data => {
-                perfectRuns[selectedCat] = data.count; // Sincronizamos localmente
-            });
+            .then(data => { perfectRuns[selectedCat] = data.count; });
+    }
+
+    // GUARDAR "ÚLTIMA VEZ JUGADO" EN LA BASE DE DATOS
+    if (selectedCat !== 'fallos' && selectedCat !== 'fallos_globales') {
+        fetch(`${API_BASE_URL}/last-played`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ moduleName: selectedCat, groupName: currentGroup })
+        })
+        .then(res => res.json())
+        .then(data => { lastPlayedData[selectedCat] = data.date; }); // Sincroniza localmente
     }
     
     let phrase = "";
@@ -505,9 +543,12 @@ function finishQuiz() {
     let color = "#eab308";
 
     if (percent === 100) { phrase = "¡GOD MODE ABSOLUTO! ⚡ Dominas el sistema al 100%."; icon = "zap"; color = "#facc15"; }
-    else if (percent >= 80) { phrase = "¡Ea! Casi perfecto, no esta mal, pero sabes que puedes mejorar. ⚔️"; icon = "shield-check"; color = "#10b981"; }
-    else if (percent >= 50) { phrase = "Aprobado. 📚 Pero vamos que sigues siendo mas tonto que una gallina."; icon = "book-open"; color = "#fb923c"; }
-    else { phrase = "Seras paquete, vaya mierda has hecho, estaras orgulloso...."; icon = "alert-circle"; color = "#ef4444"; }
+    else if (percent >= 80) { phrase = "¡Ea! Casi perfecto, no esta mal, pero sabes que puedes mejorar ¿O acaso eres un cobarde?. ⚔️"; icon = "shield-check"; color = "#10b981"; }
+    else if (percent >= 50) { phrase = "Aprobado. 📚 Pero vamos, que sigues siendo mas tonto que una gallina."; icon = "book-open"; color = "#fb923c"; }
+    else { phrase = "Vaya mierda has hecho, estaras orgulloso...."; icon = "alert-circle"; color = "#ef4444"; }
+
+    // ELEGIR A DÓNDE VOLVER (Si tenemos un grupo guardado, vuelve a él)
+    const isGlobalFallos = selectedCat === 'fallos_globales';
 
     const summaryCard = document.querySelector('.summary-card');
     summaryCard.innerHTML = `
@@ -515,8 +556,21 @@ function finishQuiz() {
         <h2 class="title-gradient">TEST FINALIZADO</h2>
         <div style="font-size: 2.5rem; font-weight: 900; color: ${color}; margin-bottom: 10px;">${percent}%</div>
         <p class="subtitle" style="text-transform: none; letter-spacing: normal; font-size: 1.1rem; color: #f4f4f5; margin-bottom: 30px;">${phrase}</p>
-        <button class="menu-btn full-yellow-btn" onclick="loadMainMenu()">Volver al Menú</button>
+        
+        <button id="btn-return-after-quiz" class="menu-btn full-yellow-btn">
+            ${(currentGroup && !isGlobalFallos) ? 'Volver al Tema' : 'Volver al Menú Principal'}
+        </button>
     `;
+    
+    // Le asignamos el evento por JS para que no haya fallos con las comillas
+    document.getElementById('btn-return-after-quiz').onclick = () => {
+        if (currentGroup && !isGlobalFallos) {
+            showModulesForGroup(currentGroup);
+        } else {
+            loadMainMenu();
+        }
+    };
+
     lucide.createIcons();
     showScreen('summary-screen');
 }

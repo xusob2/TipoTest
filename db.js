@@ -46,6 +46,13 @@ const FalloSchema = new mongoose.Schema({
     questionData: { type: Object } // Guardamos la pregunta entera para que sea fácil leerla
 });
 
+// 6. NUEVO: Esquema para el registro de última vez jugado
+const LastPlayedSchema = new mongoose.Schema({
+    moduleName: { type: String, required: true, unique: true },
+    groupName: { type: String },
+    date: { type: Date, default: Date.now }
+});
+
 // Conexión a Mongoose
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('✅ Conexión a MongoDB exitosa.'))
@@ -57,5 +64,6 @@ module.exports = {
     Score: mongoose.model('Score', ScoreSchema),
     Report: mongoose.model('Report', ReportSchema),
     PerfectRun: mongoose.model('PerfectRun', PerfectRunSchema),
-    Fallo: mongoose.model('Fallo', FalloSchema) // <-- AÑADIDO
+    Fallo: mongoose.model('Fallo', FalloSchema),
+    LastPlayed: mongoose.model('LastPlayed', LastPlayedSchema)
 };
