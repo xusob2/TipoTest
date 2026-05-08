@@ -1,7 +1,7 @@
 const API_BASE_URL = '/api';
 
 // --- Variables Globales del Quiz ---
-let globalFallos = JSON.parse(localStorage.getItem('hacking_fallos_ut4')) || [];
+let globalFallos = [];
 let selectedCat = null;
 let queue = [];
 let failedPool = [];
@@ -84,12 +84,15 @@ async function loadMainMenu() {
     dynamicMenuContainer.innerHTML = '<p style="color:gray; text-align:center;">Cargando temas...</p>';
     
     try {
-      const [resMenu, resRuns] = await Promise.all([
+      const [resMenu, resRuns, resFallos] = await Promise.all([
             fetch(`${API_BASE_URL}/menu`),
-            fetch(`${API_BASE_URL}/perfect-runs`)
+            fetch(`${API_BASE_URL}/perfect-runs`),
+            fetch(`${API_BASE_URL}/fallos`)
         ]);
         fetchedGroups = await resMenu.json(); 
         perfectRuns = await resRuns.json();
+        globalFallos = await resFallos.json(); // GUARDAMOS LOS FALLOS DE LA BASE DE DATOS
+        
         renderGroupMenu();
     } catch (error) {
         dynamicMenuContainer.innerHTML = '<p style="color:red; text-align:center;">Error conectando al servidor.</p>';
@@ -180,21 +183,33 @@ function showModulesForGroup(groupName) {
 
     dynamicMenuContainer.appendChild(gridDiv);
 
-    // Botón de repaso de fallos
+    // Botón de repaso de fallos (Ahora dividido en bloques de 15)
     const fallosDeEsteGrupo = globalFallos.filter(q => q.groupName === groupName);
     if (fallosDeEsteGrupo.length > 0) {
-        const btnFallos = document.createElement('button');
-        btnFallos.className = 'menu-btn red-btn col-flex center';
-        btnFallos.style.marginTop = "20px";
-        btnFallos.style.width = "100%";
-        btnFallos.onclick = () => startFallos(groupName);
-        btnFallos.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="alert-triangle"></i> 
-                <span>Repasar fallos de este bloque (${fallosDeEsteGrupo.length})</span>
-            </div>
-        `;
-        dynamicMenuContainer.appendChild(btnFallos);
+        const chunkSize = 15; // Máximo de preguntas por test de fallos
+        const numParts = Math.ceil(fallosDeEsteGrupo.length / chunkSize);
+
+        for (let i = 0; i < numParts; i++) {
+            // Calculamos cuántas hay en este trozo exacto
+            const chunkCount = fallosDeEsteGrupo.slice(i * chunkSize, (i + 1) * chunkSize).length;
+            const partLabel = numParts > 1 ? ` (Parte ${i + 1})` : '';
+
+            const btnFallos = document.createElement('button');
+            btnFallos.className = 'menu-btn red-btn col-flex center';
+            btnFallos.style.marginTop = i === 0 ? "20px" : "10px"; // Separamos el primero del resto
+            btnFallos.style.width = "100%";
+            
+            // Le pasamos a la función desde dónde hasta dónde tiene que cortar
+            btnFallos.onclick = () => startFallos(groupName, i * chunkSize, chunkSize);
+            
+            btnFallos.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="alert-triangle"></i> 
+                    <span>Repasar fallos de este bloque${partLabel} (${chunkCount})</span>
+                </div>
+            `;
+            dynamicMenuContainer.appendChild(btnFallos);
+        }
     }
 
     lucide.createIcons();
@@ -204,10 +219,17 @@ function startFallosGlobales() {
     if (globalFallos.length === 0) return;
     
     selectedCat = 'fallos_globales';
-    queue = shuffleArray(globalFallos);
+    
+    // CORRECCIÓN 1: Mapeamos para limpiar los estados antiguos (colores)
+    queue = shuffleArray(globalFallos.map(q => ({ ...q, status: null })));
+    
     failedPool = [];
     idx = 0;
     correctsInSession = 0;
+    
+    // CORRECCIÓN 2: Guardamos el total para que el % final no se rompa
+    totalQuestions = queue.length; 
+    
     mode = 'quiz';
     
     quizTitle.textContent = `REPASO: TODOS LOS FALLOS`;
@@ -221,8 +243,13 @@ function startFallosGlobales() {
 // 2. LÓGICA DEL JUEGO (QUIZ)
 // ==========================================
 
-function saveGlobalFallos() {
-    localStorage.setItem('hacking_fallos_ut4', JSON.stringify(globalFallos));
+function saveGlobalFallos(preguntaFallada) {
+    // Lo enviamos a la base de datos sin bloquear la pantalla
+    fetch(`${API_BASE_URL}/fallos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preguntaFallada)
+    }).catch(e => console.error("Error guardando fallo:", e));
 }
 
 async function startQuiz(moduleName) {
@@ -262,20 +289,30 @@ async function startQuiz(moduleName) {
 }
 
 // FUNCIÓN ARREGLADA: Eliminada la duplicada que había debajo de esta
-function startFallos(groupName) {
-    const filtrados = globalFallos.filter(q => q.groupName === groupName);
+// Añadimos startIndex y chunkSize a los parámetros (por defecto 0 y 15)
+function startFallos(groupName, startIndex = 0, chunkSize = 15) {
+    let filtrados = globalFallos.filter(q => q.groupName === groupName);
     if (filtrados.length === 0) return;
     
+    // Cortamos el array para coger solo el lote de 15 que nos toca
+    filtrados = filtrados.slice(startIndex, startIndex + chunkSize);
+    
+    // Por si acaso el usuario ha borrado fallos y el array se ha quedado vacío en esta parte
+    if (filtrados.length === 0) return loadMainMenu(); 
+
     selectedCat = 'fallos';
-    // Mapeamos preguntas y reseteamos estado de sesión (status)
     queue = shuffleArray(filtrados.map(q => ({ ...q, status: null })));
     failedPool = [];
     idx = 0;
     correctsInSession = 0;
-    totalQuestions = queue.length; // Guardamos el total inicial
+    totalQuestions = queue.length; 
     mode = 'quiz';
     
-    quizTitle.textContent = `REPASO: ${groupName}`;
+    // Le ponemos un indicador visual al título para saber que es un lote
+    const partNum = (startIndex / chunkSize) + 1;
+    const isFragmented = globalFallos.filter(q => q.groupName === groupName).length > chunkSize;
+    
+    quizTitle.textContent = isFragmented ? `REPASO: ${groupName} (P${partNum})` : `REPASO: ${groupName}`;
     quizTitle.style.color = 'var(--red-main)';
     
     showScreen('quiz-container');
@@ -427,7 +464,7 @@ function updateStateAndTimers(isCorrect) {
             // ¡OJO AQUÍ! Usamos _id con barra baja
             if (!globalFallos.find(item => item._id === current._id)) {
                 globalFallos.push(current);
-                saveGlobalFallos();
+                saveGlobalFallos(current);
             }
             // Bolsa de repaso de la sesión actual
             if (mode === 'quiz' && !failedPool.find(item => item._id === current._id)) {
@@ -524,11 +561,15 @@ function handleNext() {
 
 function removeFromFallos() {
     if (timeoutId) clearTimeout(timeoutId);
-    // Usamos _id en lugar de comparar por el texto de la pregunta
-    globalFallos = globalFallos.filter(q => q._id !== queue[idx]._id);
-    saveGlobalFallos();
-    queue.splice(idx, 1);
     
+    const idToRemove = queue[idx]._id;
+    globalFallos = globalFallos.filter(q => q._id !== idToRemove);
+    
+    // Le decimos a la base de datos que borre ese fallo
+    fetch(`${API_BASE_URL}/fallos/${idToRemove}`, { method: 'DELETE' })
+        .catch(e => console.error("Error borrando fallo:", e));
+    
+    queue.splice(idx, 1);
     if (queue.length === 0) showScreen('summary-screen');
     else {
         if (idx >= queue.length) idx = 0;

@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path'); 
-const { Question, Score, Report,PerfectRun } = require('./db');
+const { Question, Score, Report,PerfectRun,Fallo } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000; 
 
@@ -171,6 +171,41 @@ app.post('/api/perfect-runs/:moduleName', async (req, res) => {
         res.json(record);
     } catch (error) {
         res.status(500).json({ message: 'Error al guardar récord.' });
+    }
+});
+
+// Obtener todos los fallos
+app.get('/api/fallos', async (req, res) => {
+    try {
+        const fallos = await Fallo.find();
+        // Devolvemos solo el interior (la pregunta en sí)
+        res.json(fallos.map(f => f.questionData));
+    } catch (error) {
+        res.status(500).json({ message: 'Error al obtener fallos.' });
+    }
+});
+
+// Guardar un fallo nuevo
+app.post('/api/fallos', async (req, res) => {
+    try {
+        await Fallo.findOneAndUpdate(
+            { questionId: req.body._id },
+            { questionId: req.body._id, questionData: req.body },
+            { upsert: true }
+        );
+        res.status(200).json({ message: 'Fallo guardado' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al guardar fallo.' });
+    }
+});
+
+// Borrar un fallo (cuando le das a "Ya me la sé")
+app.delete('/api/fallos/:id', async (req, res) => {
+    try {
+        await Fallo.findOneAndDelete({ questionId: req.params.id });
+        res.status(200).json({ message: 'Fallo eliminado' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al eliminar fallo.' });
     }
 });
 // --- FRONTEND ESTÁTICO ---

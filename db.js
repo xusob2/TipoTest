@@ -34,10 +34,16 @@ const ReportSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now }
 });
 
-// 4. Nuevo esquema para récords perfectos
+// 4. Esquema para récords perfectos
 const PerfectRunSchema = new mongoose.Schema({
     moduleName: { type: String, required: true, unique: true },
     count: { type: Number, default: 0 }
+});
+
+// 5. NUEVO: Esquema para guardar los fallos globalmente
+const FalloSchema = new mongoose.Schema({
+    questionId: { type: String, required: true, unique: true },
+    questionData: { type: Object } // Guardamos la pregunta entera para que sea fácil leerla
 });
 
 // Conexión a Mongoose
@@ -50,5 +56,6 @@ module.exports = {
     Question: mongoose.model('Question', QuestionSchema),
     Score: mongoose.model('Score', ScoreSchema),
     Report: mongoose.model('Report', ReportSchema),
-    PerfectRun: mongoose.model('PerfectRun', PerfectRunSchema)
+    PerfectRun: mongoose.model('PerfectRun', PerfectRunSchema),
+    Fallo: mongoose.model('Fallo', FalloSchema) // <-- AÑADIDO
 };
