@@ -542,19 +542,22 @@ function handleNext() {
         const current = queue[idx];
         let nextQueue = [...queue];
 
+        // 1. Sacamos la pregunta actual de la cola
         nextQueue.splice(idx, 1);
 
+        // 2. Si ya tiene los 3 aciertos, desaparece
         if (current.hits >= 3) {
             if (nextQueue.length === 0) return finishQuiz();
         } else {
-            const espaciado = Math.floor(Math.random() * 3) + 3; 
-            const insertIndex = Math.min(nextQueue.length, espaciado);
-            nextQueue.splice(insertIndex, 0, current);
+            // 3. COMO EN REACT: Si le faltan aciertos o la acaba de fallar, SE VA AL FINAL DE LA COLA
+            nextQueue.push(current);
         }
         
+        // 4. Limpiamos su color para que no salga en verde/rojo al volver a aparecer
         current.status = null; 
+        
         queue = nextQueue;
-        idx = 0; 
+        idx = 0; // En repaso siempre leemos la primera de la cola
         renderQuestion();
     }
 }
