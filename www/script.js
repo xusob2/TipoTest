@@ -565,6 +565,7 @@ function finishQuiz() {
     // Le asignamos el evento por JS para que no haya fallos con las comillas
     document.getElementById('btn-return-after-quiz').onclick = () => {
         if (currentGroup && !isGlobalFallos) {
+            showScreen('main-menu');
             showModulesForGroup(currentGroup);
         } else {
             loadMainMenu();
